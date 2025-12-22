@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador Técnico thIAguinho</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
+    <style>
+        body { margin: 0; background-color: #1a1a1a; color: #ffcc00; font-family: sans-serif; }
+        #info { position: absolute; top: 10px; width: 100%; text-align: center; z-index: 10; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>DEBUG: TESTE DE MASCOTE</h1>
+        <p>Se o boneco aparecer abaixo, o arquivo .glb está correto.</p>
+    </div>
+
+    <a-scene embedded renderer="colorManagement: true;">
+        <a-assets>
+            <a-asset-item id="novo-mascote" src="assets/mascote.glb"></a-asset-item>
+        </a-assets>
+
+        <a-entity light="type: ambient; intensity: 0.7"></a-entity>
+        <a-entity light="type: directional; intensity: 1; castShadow: true" position="1 3 2"></a-entity>
+
+        <a-entity 
+            id="avatar"
+            gltf-model="#novo-mascote" 
+            position="0 0 -3" 
+            scale="1.5 1.5 1.5"
+            animation-mixer>
+        </a-entity>
+
+        <a-sky color="#222"></a-sky>
+    </a-scene>
+
+    <script>
+        // Log de erro caso o modelo falhe
+        document.querySelector('#avatar').addEventListener('model-error', (e) => {
+            console.error("ERRO CRÍTICO: O arquivo mascote.glb não pôde ser lido!", e);
+            alert("Erro ao carregar o mascote. Verifique o nome do arquivo na pasta assets.");
+        });
+    </script>
+</body>
+</html>
