@@ -1,15 +1,23 @@
 {
-  "name": "thIAguinho Arcade",
-  "short_name": "thIAguinho",
-  "start_url": "/Game_TS/index.html",
-  "display": "standalone",\n  "scope": "/Game_TS/",
-  "background_color": "#111111",
-  "theme_color": "#c92a2a",
+  "name": "TS-Game AR | thIAguinho",
+  "short_name": "TS-Game",
+  "description": "Realidade Aumentada e Games com thIAguinho",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#FFCC00",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "assets/mascote_perfil.jpg",
+      "src": "icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/jpeg"
+      "type": "image/png"
     }
   ]
 }
