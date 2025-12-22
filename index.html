@@ -10,28 +10,22 @@
     <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <style>
         body { background-color: #111; color: white; font-family: 'Segoe UI', sans-serif; }
-        .arcade-btn { 
-            transition: all 0.3s; border-bottom: 4px solid #b91c1c; 
-        }
+        .arcade-btn { transition: all 0.3s; border-bottom: 4px solid #b91c1c; }
         .arcade-btn:active { transform: translateY(4px); border-bottom: 0px; }
         .neon-text { text-shadow: 0 0 10px #ffcc00, 0 0 20px #ffcc00; }
         .best-score { font-size: 0.7rem; color: #ffcc00; font-weight: bold; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 20px; margin-top: 5px; display: inline-block; }
     </style>
 </head>
 <body class="flex flex-col min-h-screen bg-gradient-to-b from-gray-900 to-black">
-    
     <div class="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-screen">
-        
         <div class="text-center mb-8">
             <div class="w-24 h-24 mx-auto rounded-full border-4 border-yellow-400 overflow-hidden mb-4 shadow-xl">
-                <img src="assets/mascote_perfil.jpg" alt="thIAguinho" class="w-full h-full object-cover">
+                <img src="./assets/mascote_perfil.jpg" alt="thIAguinho" class="w-full h-full object-cover">
             </div>
             <h1 class="text-4xl font-black text-yellow-400 italic neon-text">ARCADE thIAguinho</h1>
             <p class="text-gray-400 text-sm mt-2">Escolha seu desafio!</p>
         </div>
-
         <div class="w-full max-w-sm space-y-4">
-            
             <a href="jogos.html?mode=dance" class="arcade-btn block bg-purple-600 hover:bg-purple-500 text-white rounded-xl p-6 relative overflow-hidden group">
                 <div class="absolute right-[-20px] top-[-20px] opacity-20 group-hover:scale-110 transition">
                     <i class='bx bxs-music text-9xl'></i>
@@ -39,7 +33,6 @@
                 <h2 class="text-2xl font-bold uppercase italic">🕺 Máquina de Dança</h2>
                 <div id="score-dance" class="best-score">Recorde: 0</div>
             </a>
-
             <a href="jogos.html?mode=run" class="arcade-btn block bg-green-600 hover:bg-green-500 text-white rounded-xl p-6 relative overflow-hidden group">
                 <div class="absolute right-[-20px] top-[-20px] opacity-20 group-hover:scale-110 transition">
                     <i class='bx bx-run text-9xl'></i>
@@ -47,7 +40,6 @@
                 <h2 class="text-2xl font-bold uppercase italic">🏃 Corrida de Rua</h2>
                 <div id="score-run" class="best-score">Recorde: 0</div>
             </a>
-
             <a href="jogos.html?mode=race" class="arcade-btn block bg-red-600 hover:bg-red-500 text-white rounded-xl p-6 relative overflow-hidden group">
                 <div class="absolute right-[-20px] top-[-20px] opacity-20 group-hover:scale-110 transition">
                     <i class='bx bxs-car text-9xl'></i>
@@ -55,14 +47,9 @@
                 <h2 class="text-2xl font-bold uppercase italic">🏎️ Grand Prix</h2>
                 <div id="score-race" class="best-score">Recorde: 0</div>
             </a>
-
         </div>
-
-        <p class="mt-8 text-xs text-gray-500 text-center">
-            Necessário câmera frontal.<br>Afaste-se para jogar.
-        </p>
+        <p class="mt-8 text-xs text-gray-500 text-center">Necessário câmera frontal.<br>Afaste-se para jogar.</p>
     </div>
-
-    <script src="js/app.js"></script>
+    <script src="./js/app.js"></script>
 </body>
 </html>
