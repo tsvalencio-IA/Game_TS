@@ -7,7 +7,7 @@
   "theme_color": "#c92a2a",
   "icons": [
     {
-      "src": "assets/mascote_perfil.jpg",
+      "src": "./assets/mascote_perfil.jpg",
       "sizes": "512x512",
       "type": "image/jpeg"
     }
