@@ -1,87 +1,49 @@
-// sw.js - Service Worker com estratégia Network First
-
-const CACHE_NAME = 'thiaguinho-arcade-v3'; // Versão do cache atualizada
+const CACHE_NAME = 'ts-game-v1.0.0';
 const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './jogos.html',
-  './js/app.js',
-  './manifest.json',
-  './assets/mascote_perfil.jpg',
-  './assets/mascote.glb', // Incluindo o modelo 3D para cache
-  './assets/estrada.jpg', // Incluindo texturas
-  './assets/pista.jpg', // Incluindo texturas
-  // Bibliotecas locais
-  './js/vendor/three.min.js',
-  './js/vendor/GLTFLoader.js',
-  './js/vendor/pose.js',
-  './js/vendor/camera_utils.js',
-  './js/vendor/kalidokit.umd.js'
+    './',
+    './index.html',
+    './style.css',
+    './manifest.json',
+    './js/game-logic.js',
+    './assets/models/thiaguinho_animado.glb'
 ];
 
-// 1. Instalação: Salva os arquivos iniciais
-self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Força o SW a assumir o controle imediatamente
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[Service Worker] Caching arquivos do Arcade');
-        return cache.addAll(ASSETS_TO_CACHE);
-      })
-      .catch(err => {
-        console.error('[Service Worker] Falha ao cachear ativos:', err);
-        // Em caso de falha (ex: arquivo .glb muito grande), o SW falha.
-        // Vamos tentar cachear sem o .glb se falhar.
-        const criticalAssets = ASSETS_TO_CACHE.filter(asset => !asset.endsWith('.glb'));
-        return caches.open(CACHE_NAME).then(cache => cache.addAll(criticalAssets));
-      })
-  );
-});
-
-// 2. Ativação: Limpa caches antigos (importante para quem já usou a versão antiga)
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(keyList.map((key) => {
-        if (key !== CACHE_NAME) {
-          console.log('[Service Worker] Removendo cache antigo:', key);
-          return caches.delete(key);
-        }
-      }));
-    })
-  );
-  self.clients.claim();
-});
-
-// 3. Interceptação (Fetch): Tenta Rede primeiro, se falhar usa Cache (Modo Offline)
-self.addEventListener('fetch', (event) => {
-  // Ignora requisições externas (CDNs, Google Fonts, etc) para não dar erro de CORS no cache
-  if (!event.request.url.startsWith(self.location.origin)) {
-      return;
-  }
-
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Se a resposta for válida, clonamos e atualizamos o cache
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
-        }
-        const responseToCache = response.clone();
+// Instalação: Salva arquivos no cache
+self.addEventListener('install', event => {
+    event.waitUntil(
         caches.open(CACHE_NAME)
-          .then((cache) => {
-            // Não cacheamos o .glb no runtime se ele for muito grande,
-            // pois pode estourar o limite de cache.
-            // Apenas cacheamos se for um dos ativos iniciais.
-            if (ASSETS_TO_CACHE.includes(event.request.url.replace(self.location.origin, '.'))) {
-                cache.put(event.request, responseToCache);
-            }
-          });
-        return response;
-      })
-      .catch(() => {
-        // Se der erro na rede (offline), tenta pegar do cache
-        return caches.match(event.request);
-      })
-  );
+            .then(cache => {
+                console.log('SW: Cache aberto');
+                return cache.addAll(ASSETS_TO_CACHE);
+            })
+    );
+});
+
+// Ativação: Limpa caches antigos
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cache => {
+                    if (cache !== CACHE_NAME) {
+                        console.log('SW: Limpando cache antigo');
+                        return caches.delete(cache);
+                    }
+                })
+            );
+        })
+    );
+});
+
+// Busca: Serve do cache se disponível, senão vai para a rede
+self.addEventListener('fetch', event => {
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => {
+                if (response) {
+                    return response;
+                }
+                return fetch(event.request);
+            })
+    );
 });
