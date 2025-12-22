@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>thIAguinho Arcade Engine</title>
+    <title>thIAguinho Arcade Engine | Kinet</title>
     <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', sans-serif; }
@@ -11,7 +11,7 @@
         .hud-box { background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 10px; border-left: 5px solid #ffcc00; color: white; backdrop-filter: blur(5px); }
         .hud-title { font-size: 24px; font-weight: bold; font-style: italic; color: #ffcc00; text-shadow: 2px 2px 0 #000; }
         .hud-score { font-size: 32px; font-weight: bold; }
-        #video-container { position: absolute; bottom: 20px; right: 20px; width: 100px; height: 133px; z-index: 10; border: 2px solid #fff; border-radius: 10px; overflow: hidden; background: #000; opacity: 0.8; }
+        #video-container { position: absolute; bottom: 20px; right: 20px; width: 120px; height: 160px; z-index: 10; border: 2px solid #ffcc00; border-radius: 10px; overflow: hidden; background: #000; }
         video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         #loading { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #ffcc00; z-index: 100; text-align: center; }
         .spinner { border: 4px solid #333; border-top: 4px solid #ffcc00; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; margin-bottom: 20px; }
@@ -28,11 +28,11 @@
     <button onclick="window.location.href='index.html'" class="back-btn"><i class='bx bx-x'></i></button>
     <div id="loading">
         <div class="spinner"></div>
-        <h2>INICIALIZANDO GPU...</h2>
-        <p id="loading-progress">Aguarde o thIAguinho</p>
+        <h2 id="loading-msg">ESTABELECENDO CONEXÃO GPU...</h2>
+        <p id="loading-progress">A carregar thIAguinho Kinet</p>
     </div>
     <div id="hud-container">
-        <div class="hud-box"><div id="game-title" class="hud-title">MODO</div></div>
+        <div class="hud-box"><div id="game-title" class="hud-title">ARCADE</div></div>
         <div class="hud-box"><div id="score-display" class="hud-score">0</div></div>
     </div>
     <div id="video-container"><video id="input_video" playsinline></video></div>
@@ -43,18 +43,20 @@
 
         function initThreeJS() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(GAME_MODE === 'dance' ? 0x111111 : 0x87CEEB);
+            scene.background = new THREE.Color(GAME_MODE === 'dance' ? 0x050505 : 0x87CEEB);
+            
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(0, 1.6, 4.5);
 
-            // FIX PARA PLACAS INTEL ANTIGAS
+            // FORCE WEBGL CONTEXT FOR OLDER GPUS (INTEL HD 3000 FIX)
             renderer = new THREE.WebGLRenderer({ 
                 antialias: false, 
                 alpha: true,
-                failIfMajorPerformanceCaveat: false,
-                preserveDrawingBuffer: true 
+                powerPreference: "high-performance",
+                failIfMajorPerformanceCaveat: false 
             });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
             const loader = new THREE.GLTFLoader();
@@ -62,41 +64,74 @@
                 model = gltf.scene;
                 scene.add(model);
                 document.getElementById('loading').style.display = 'none';
-            }, undefined, (err) => {
-                console.error("Erro ao carregar modelo 3D");
-                document.getElementById('loading').style.display = 'none';
+            }, (xhr) => {
+                let p = (xhr.loaded / xhr.total * 100);
+                document.getElementById('loading-progress').innerText = `A processar malha: ${Math.round(p)}%`;
+            }, (err) => {
+                console.error("Falha no carregamento do modelo 3D.");
+                document.getElementById('loading-msg').innerText = "ERRO NO FICHEIRO .GLB";
             });
 
-            const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+            const light = new THREE.DirectionalLight(0xffffff, 0.8);
+            light.position.set(0, 20, 10);
             scene.add(light);
+
             animate();
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            if (model && GAME_MODE === 'run') model.rotation.y += 0.01;
+            if (model && GAME_MODE === 'run') model.rotation.y += 0.005;
             renderer.render(scene, camera);
         }
 
+        // KINET LOGIC - FULL BODY RIGGING
         const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
         pose.setOptions({modelComplexity: 0, smoothLandmarks: true, minDetectionConfidence: 0.5});
+        
         pose.onResults((results) => {
             if (!model || !results.poseLandmarks) return;
+            
             const riggedPose = Kalidokit.Pose.solve(results.poseLandmarks, results.poseWorldLandmarks, {runtime: "mediapipe"});
+            
             const rigRotation = (name, rotation) => {
+                if(!rotation) return;
                 let bone = model.getObjectByName("mixamorig" + name) || model.getObjectByName(name);
-                if (bone && rotation) bone.quaternion.setFromEuler(new THREE.Euler(rotation.x, rotation.y, rotation.z));
+                if (bone) {
+                    const euler = new THREE.Euler(rotation.x, rotation.y, rotation.z);
+                    bone.quaternion.setFromEuler(euler);
+                }
             };
+
+            // MAPEAMENTO COMPLETO DE OSSOS
             rigRotation("Hips", riggedPose.Hips);
+            rigRotation("Spine", riggedPose.Spine);
+            rigRotation("Neck", riggedPose.Neck);
+            rigRotation("RightUpperArm", riggedPose.RightUpperArm);
+            rigRotation("RightLowerArm", riggedPose.RightLowerArm);
+            rigRotation("LeftUpperArm", riggedPose.LeftUpperArm);
+            rigRotation("LeftLowerArm", riggedPose.LeftLowerArm);
+            rigRotation("RightUpperLeg", riggedPose.RightUpperLeg);
+            rigRotation("RightLowerLeg", riggedPose.RightLowerLeg);
+            rigRotation("LeftUpperLeg", riggedPose.LeftUpperLeg);
+            rigRotation("LeftLowerLeg", riggedPose.LeftLowerLeg);
         });
 
         const videoEl = document.getElementById('input_video');
         const cameraFeed = new Camera(videoEl, {
             onFrame: async () => { await pose.send({image: videoEl}); },
-            width: 480, height: 360
+            width: 640, height: 480
         });
         cameraFeed.start();
+        
         initThreeJS();
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
