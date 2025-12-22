@@ -21,11 +21,11 @@
         canvas { display: block; width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; z-index: 2; }
     </style>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.umd.js"></script>
+    <script src="js/vendor/three.min.js"></script>
+    <script src="js/vendor/GLTFLoader.js"></script>
+    <script src="js/vendor/pose.js"></script>
+    <script src="js/vendor/camera_utils.js"></script>
+    <script src="js/vendor/kalidokit.umd.js"></script>
 </head>
 <body>
 
@@ -187,8 +187,15 @@
             renderer.render(scene, camera);
         }
 
-        const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-        pose.setOptions({modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.6});
+        // Verificação de capacidade do dispositivo e ajuste de complexidade do modelo
+        let modelComplexity = 1;
+        if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
+            modelComplexity = 0; // Reduz a complexidade para dispositivos mais fracos
+            elDebug.innerText += "\nModo de baixa performance ativado.";
+        }
+
+        const pose = new Pose({locateFile: (file) => `js/vendor/${file}`});
+        pose.setOptions({modelComplexity: modelComplexity, smoothLandmarks: true, minDetectionConfidence: 0.6});
         pose.onResults(onResults);
 
         const videoEl = document.getElementById('input_video');
@@ -196,6 +203,9 @@
             onFrame: async () => { await pose.send({image: videoEl}); },
             width: 480, height: 360
         }).start();
+        
+        // Feedback visual inicial
+        elInstr.innerText = "Posicione-se na frente da câmera.";
 
         function onResults(results) {
             if (!model || !results.poseLandmarks) return;
@@ -203,9 +213,24 @@
             applyRig(rigged);
 
             if (GAME_MODE === 'run') {
-                const shoulderY = (results.poseLandmarks[11].y + results.poseLandmarks[12].y) / 2;
-                if (Math.abs(shoulderY - previousShoulderY) > 0.009) gameSpeed += 0.14;
-                previousShoulderY = shoulderY;
+                // Pontos-chave: Quadril (23, 24), Tornozelo (27, 28)
+                const hipY = (results.poseLandmarks[23].y + results.poseLandmarks[24].y) / 2;
+                const ankleLY = results.poseLandmarks[27].y;
+                const ankleRY = results.poseLandmarks[28].y;
+                
+                // Heurística de corrida: Se um tornozelo estiver significativamente acima do quadril, é um passo.
+                // O valor 0.1 é uma estimativa que pode precisar de ajuste fino (calibração).
+                const stepThreshold = 0.1; 
+                const isStepping = (hipY - ankleLY > stepThreshold) || (hipY - ankleRY > stepThreshold);
+
+                if (isStepping) {
+                    gameSpeed += 0.14; // Aumenta a velocidade
+                    elInstr.innerText = "CORRENDO!";
+                } else {
+                    elInstr.innerText = "Mantenha o ritmo...";
+                }
+                
+                // Limita a velocidade máxima
                 if(gameSpeed > 1.8) gameSpeed = 1.8;
             }
             if (GAME_MODE === 'race') {
@@ -283,11 +308,11 @@ HTML
         canvas { display: block; width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; z-index: 2; }
     </style>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.umd.js"></script>
+    <script src="js/vendor/three.min.js"></script>
+    <script src="js/vendor/GLTFLoader.js"></script>
+    <script src="js/vendor/pose.js"></script>
+    <script src="js/vendor/camera_utils.js"></script>
+    <script src="js/vendor/kalidokit.umd.js"></script>
 </head>
 <body>
 
@@ -449,8 +474,15 @@ HTML
             renderer.render(scene, camera);
         }
 
-        const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-        pose.setOptions({modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.6});
+        // Verificação de capacidade do dispositivo e ajuste de complexidade do modelo
+        let modelComplexity = 1;
+        if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
+            modelComplexity = 0; // Reduz a complexidade para dispositivos mais fracos
+            elDebug.innerText += "\nModo de baixa performance ativado.";
+        }
+
+        const pose = new Pose({locateFile: (file) => `js/vendor/${file}`});
+        pose.setOptions({modelComplexity: modelComplexity, smoothLandmarks: true, minDetectionConfidence: 0.6});
         pose.onResults(onResults);
 
         const videoEl = document.getElementById('input_video');
@@ -458,6 +490,9 @@ HTML
             onFrame: async () => { await pose.send({image: videoEl}); },
             width: 480, height: 360
         }).start();
+        
+        // Feedback visual inicial
+        elInstr.innerText = "Posicione-se na frente da câmera.";
 
         function onResults(results) {
             if (!model || !results.poseLandmarks) return;
@@ -465,9 +500,24 @@ HTML
             applyRig(rigged);
 
             if (GAME_MODE === 'run') {
-                const shoulderY = (results.poseLandmarks[11].y + results.poseLandmarks[12].y) / 2;
-                if (Math.abs(shoulderY - previousShoulderY) > 0.009) gameSpeed += 0.14;
-                previousShoulderY = shoulderY;
+                // Pontos-chave: Quadril (23, 24), Tornozelo (27, 28)
+                const hipY = (results.poseLandmarks[23].y + results.poseLandmarks[24].y) / 2;
+                const ankleLY = results.poseLandmarks[27].y;
+                const ankleRY = results.poseLandmarks[28].y;
+                
+                // Heurística de corrida: Se um tornozelo estiver significativamente acima do quadril, é um passo.
+                // O valor 0.1 é uma estimativa que pode precisar de ajuste fino (calibração).
+                const stepThreshold = 0.1; 
+                const isStepping = (hipY - ankleLY > stepThreshold) || (hipY - ankleRY > stepThreshold);
+
+                if (isStepping) {
+                    gameSpeed += 0.14; // Aumenta a velocidade
+                    elInstr.innerText = "CORRENDO!";
+                } else {
+                    elInstr.innerText = "Mantenha o ritmo...";
+                }
+                
+                // Limita a velocidade máxima
                 if(gameSpeed > 1.8) gameSpeed = 1.8;
             }
             if (GAME_MODE === 'race') {
@@ -577,11 +627,11 @@ HTML
         canvas { display: block; width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; z-index: 2; }
     </style>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.umd.js"></script>
+    <script src="js/vendor/three.min.js"></script>
+    <script src="js/vendor/GLTFLoader.js"></script>
+    <script src="js/vendor/pose.js"></script>
+    <script src="js/vendor/camera_utils.js"></script>
+    <script src="js/vendor/kalidokit.umd.js"></script>
 </head>
 <body>
 
@@ -743,8 +793,15 @@ HTML
             renderer.render(scene, camera);
         }
 
-        const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-        pose.setOptions({modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.6});
+        // Verificação de capacidade do dispositivo e ajuste de complexidade do modelo
+        let modelComplexity = 1;
+        if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
+            modelComplexity = 0; // Reduz a complexidade para dispositivos mais fracos
+            elDebug.innerText += "\nModo de baixa performance ativado.";
+        }
+
+        const pose = new Pose({locateFile: (file) => `js/vendor/${file}`});
+        pose.setOptions({modelComplexity: modelComplexity, smoothLandmarks: true, minDetectionConfidence: 0.6});
         pose.onResults(onResults);
 
         const videoEl = document.getElementById('input_video');
@@ -752,6 +809,9 @@ HTML
             onFrame: async () => { await pose.send({image: videoEl}); },
             width: 480, height: 360
         }).start();
+        
+        // Feedback visual inicial
+        elInstr.innerText = "Posicione-se na frente da câmera.";
 
         function onResults(results) {
             if (!model || !results.poseLandmarks) return;
@@ -759,9 +819,24 @@ HTML
             applyRig(rigged);
 
             if (GAME_MODE === 'run') {
-                const shoulderY = (results.poseLandmarks[11].y + results.poseLandmarks[12].y) / 2;
-                if (Math.abs(shoulderY - previousShoulderY) > 0.009) gameSpeed += 0.14;
-                previousShoulderY = shoulderY;
+                // Pontos-chave: Quadril (23, 24), Tornozelo (27, 28)
+                const hipY = (results.poseLandmarks[23].y + results.poseLandmarks[24].y) / 2;
+                const ankleLY = results.poseLandmarks[27].y;
+                const ankleRY = results.poseLandmarks[28].y;
+                
+                // Heurística de corrida: Se um tornozelo estiver significativamente acima do quadril, é um passo.
+                // O valor 0.1 é uma estimativa que pode precisar de ajuste fino (calibração).
+                const stepThreshold = 0.1; 
+                const isStepping = (hipY - ankleLY > stepThreshold) || (hipY - ankleRY > stepThreshold);
+
+                if (isStepping) {
+                    gameSpeed += 0.14; // Aumenta a velocidade
+                    elInstr.innerText = "CORRENDO!";
+                } else {
+                    elInstr.innerText = "Mantenha o ritmo...";
+                }
+                
+                // Limita a velocidade máxima
                 if(gameSpeed > 1.8) gameSpeed = 1.8;
             }
             if (GAME_MODE === 'race') {
@@ -878,11 +953,11 @@ HTML
         canvas { display: block; width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; z-index: 2; }
     </style>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.umd.js"></script>
+    <script src="js/vendor/three.min.js"></script>
+    <script src="js/vendor/GLTFLoader.js"></script>
+    <script src="js/vendor/pose.js"></script>
+    <script src="js/vendor/camera_utils.js"></script>
+    <script src="js/vendor/kalidokit.umd.js"></script>
 </head>
 <body>
 
@@ -1044,8 +1119,15 @@ HTML
             renderer.render(scene, camera);
         }
 
-        const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-        pose.setOptions({modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.6});
+        // Verificação de capacidade do dispositivo e ajuste de complexidade do modelo
+        let modelComplexity = 1;
+        if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
+            modelComplexity = 0; // Reduz a complexidade para dispositivos mais fracos
+            elDebug.innerText += "\nModo de baixa performance ativado.";
+        }
+
+        const pose = new Pose({locateFile: (file) => `js/vendor/${file}`});
+        pose.setOptions({modelComplexity: modelComplexity, smoothLandmarks: true, minDetectionConfidence: 0.6});
         pose.onResults(onResults);
 
         const videoEl = document.getElementById('input_video');
@@ -1053,6 +1135,9 @@ HTML
             onFrame: async () => { await pose.send({image: videoEl}); },
             width: 480, height: 360
         }).start();
+        
+        // Feedback visual inicial
+        elInstr.innerText = "Posicione-se na frente da câmera.";
 
         function onResults(results) {
             if (!model || !results.poseLandmarks) return;
@@ -1060,9 +1145,24 @@ HTML
             applyRig(rigged);
 
             if (GAME_MODE === 'run') {
-                const shoulderY = (results.poseLandmarks[11].y + results.poseLandmarks[12].y) / 2;
-                if (Math.abs(shoulderY - previousShoulderY) > 0.009) gameSpeed += 0.14;
-                previousShoulderY = shoulderY;
+                // Pontos-chave: Quadril (23, 24), Tornozelo (27, 28)
+                const hipY = (results.poseLandmarks[23].y + results.poseLandmarks[24].y) / 2;
+                const ankleLY = results.poseLandmarks[27].y;
+                const ankleRY = results.poseLandmarks[28].y;
+                
+                // Heurística de corrida: Se um tornozelo estiver significativamente acima do quadril, é um passo.
+                // O valor 0.1 é uma estimativa que pode precisar de ajuste fino (calibração).
+                const stepThreshold = 0.1; 
+                const isStepping = (hipY - ankleLY > stepThreshold) || (hipY - ankleRY > stepThreshold);
+
+                if (isStepping) {
+                    gameSpeed += 0.14; // Aumenta a velocidade
+                    elInstr.innerText = "CORRENDO!";
+                } else {
+                    elInstr.innerText = "Mantenha o ritmo...";
+                }
+                
+                // Limita a velocidade máxima
                 if(gameSpeed > 1.8) gameSpeed = 1.8;
             }
             if (GAME_MODE === 'race') {

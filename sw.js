@@ -1,14 +1,22 @@
 // sw.js - Service Worker com estratégia Network First
 
-const CACHE_NAME = 'thiaguinho-arcade-v2';
+const CACHE_NAME = 'thiaguinho-arcade-v3'; // Versão do cache atualizada
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './jogos.html',
   './js/app.js',
-  './assets/mascote_perfil.jpg'
-  // Nota: Não colocamos o .glb aqui para evitar travar o cache inicial se for muito grande.
-  // O navegador fará o cache dele automaticamente após o primeiro uso.
+  './manifest.json',
+  './assets/mascote_perfil.jpg',
+  './assets/mascote.glb', // Incluindo o modelo 3D para cache
+  './assets/estrada.jpg', // Incluindo texturas
+  './assets/pista.jpg', // Incluindo texturas
+  // Bibliotecas locais
+  './js/vendor/three.min.js',
+  './js/vendor/GLTFLoader.js',
+  './js/vendor/pose.js',
+  './js/vendor/camera_utils.js',
+  './js/vendor/kalidokit.umd.js'
 ];
 
 // 1. Instalação: Salva os arquivos iniciais
@@ -19,6 +27,13 @@ self.addEventListener('install', (event) => {
       .then((cache) => {
         console.log('[Service Worker] Caching arquivos do Arcade');
         return cache.addAll(ASSETS_TO_CACHE);
+      })
+      .catch(err => {
+        console.error('[Service Worker] Falha ao cachear ativos:', err);
+        // Em caso de falha (ex: arquivo .glb muito grande), o SW falha.
+        // Vamos tentar cachear sem o .glb se falhar.
+        const criticalAssets = ASSETS_TO_CACHE.filter(asset => !asset.endsWith('.glb'));
+        return caches.open(CACHE_NAME).then(cache => cache.addAll(criticalAssets));
       })
   );
 });
@@ -55,7 +70,12 @@ self.addEventListener('fetch', (event) => {
         const responseToCache = response.clone();
         caches.open(CACHE_NAME)
           .then((cache) => {
-            cache.put(event.request, responseToCache);
+            // Não cacheamos o .glb no runtime se ele for muito grande,
+            // pois pode estourar o limite de cache.
+            // Apenas cacheamos se for um dos ativos iniciais.
+            if (ASSETS_TO_CACHE.includes(event.request.url.replace(self.location.origin, '.'))) {
+                cache.put(event.request, responseToCache);
+            }
           });
         return response;
       })

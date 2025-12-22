@@ -1,8 +1,8 @@
 {
   "name": "thIAguinho Arcade",
   "short_name": "thIAguinho",
-  "start_url": "index.html",
-  "display": "standalone",
+  "start_url": "/Game_TS/index.html",
+  "display": "standalone",\n  "scope": "/Game_TS/",
   "background_color": "#111111",
   "theme_color": "#c92a2a",
   "icons": [
