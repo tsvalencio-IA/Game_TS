@@ -2,85 +2,67 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>TS-Game | thIAguinho AR</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>thIAguinho Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#FFCC00">
-    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
-    <link rel="stylesheet" href="style.css">
-
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
-</head>
-<body style="margin: 0; overflow: hidden;">
-
-    <div id="loading-screen">
-        <div class="loader-content">
-            <div class="spinner"></div>
-            <h1>TS-GAME</h1>
-            <p id="loader-text">Sincronizando com thIAguinho...</p>
-        </div>
-    </div>
-
-    <div id="game-ui">
-        <div class="status-bar">
-            <span id="player-status">ESTADO: AGUARDANDO MARCADOR</span>
-        </div>
-        
-        <div class="controls-container">
-            <button class="control-btn" onclick="GameLogic.playAnimation('idle')">PARADO</button>
-            <button class="control-btn" onclick="GameLogic.playAnimation('walk')">ANDAR</button>
-            <button class="control-btn" onclick="GameLogic.playAnimation('run')">CORRER</button>
-        </div>
-    </div>
-
-    <a-scene 
-        embedded 
-        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
-        renderer="antialias: true; colorManagement: true; logarithmicDepthBuffer: true;"
-        vr-mode-ui="enabled: false">
-        
-        <a-assets>
-            <a-asset-item id="model-thiaguinho" src="assets/models/thiaguinho_animado.glb"></a-asset-item>
-        </a-assets>
-
-        <a-marker preset="hiro" id="main-marker">
-            <a-entity 
-                id="thiaguinho-avatar"
-                gltf-model="#model-thiaguinho"
-                scale="1 1 1"
-                position="0 0 0"
-                rotation="0 0 0"
-                animation-mixer="clip: idle; loop: repeat; crossFadeDuration: 0.4">
-            </a-entity>
-        </a-marker>
-
-        <a-entity camera></a-entity>
-    </a-scene>
-
-    <script src="js/game-logic.js"></script>
-    <script>
-        // Registro do Service Worker para PWA
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('SW: Ativo', reg))
-                    .catch(err => console.error('SW: Erro', err));
-            });
+    <meta name="theme-color" content="#c92a2a">
+    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #111; color: white; font-family: 'Segoe UI', sans-serif; }
+        .arcade-btn { 
+            transition: all 0.3s; border-bottom: 4px solid #b91c1c; 
         }
+        .arcade-btn:active { transform: translateY(4px); border-bottom: 0px; }
+        .neon-text { text-shadow: 0 0 10px #ffcc00, 0 0 20px #ffcc00; }
+        .best-score { font-size: 0.7rem; color: #ffcc00; font-weight: bold; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 20px; margin-top: 5px; display: inline-block; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen bg-gradient-to-b from-gray-900 to-black">
+    
+    <div class="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-screen">
+        
+        <div class="text-center mb-8">
+            <div class="w-24 h-24 mx-auto rounded-full border-4 border-yellow-400 overflow-hidden mb-4 shadow-xl">
+                <img src="assets/mascote_perfil.jpg" alt="thIAguinho" class="w-full h-full object-cover">
+            </div>
+            <h1 class="text-4xl font-black text-yellow-400 italic neon-text">ARCADE thIAguinho</h1>
+            <p class="text-gray-400 text-sm mt-2">Escolha seu desafio!</p>
+        </div>
 
-        // Controle do Loader
-        window.addEventListener('load', () => {
-            const scene = document.querySelector('a-scene');
-            scene.addEventListener('loaded', () => {
-                setTimeout(() => {
-                    document.getElementById('loading-screen').classList.add('hidden');
-                }, 1500);
-            });
-        });
-    </script>
+        <div class="w-full max-w-sm space-y-4">
+            
+            <a href="jogos.html?mode=dance" class="arcade-btn block bg-purple-600 hover:bg-purple-500 text-white rounded-xl p-6 relative overflow-hidden group">
+                <div class="absolute right-[-20px] top-[-20px] opacity-20 group-hover:scale-110 transition">
+                    <i class='bx bxs-music text-9xl'></i>
+                </div>
+                <h2 class="text-2xl font-bold uppercase italic">🕺 Máquina de Dança</h2>
+                <div id="score-dance" class="best-score">Recorde: 0</div>
+            </a>
+
+            <a href="jogos.html?mode=run" class="arcade-btn block bg-green-600 hover:bg-green-500 text-white rounded-xl p-6 relative overflow-hidden group">
+                <div class="absolute right-[-20px] top-[-20px] opacity-20 group-hover:scale-110 transition">
+                    <i class='bx bx-run text-9xl'></i>
+                </div>
+                <h2 class="text-2xl font-bold uppercase italic">🏃 Corrida de Rua</h2>
+                <div id="score-run" class="best-score">Recorde: 0</div>
+            </a>
+
+            <a href="jogos.html?mode=race" class="arcade-btn block bg-red-600 hover:bg-red-500 text-white rounded-xl p-6 relative overflow-hidden group">
+                <div class="absolute right-[-20px] top-[-20px] opacity-20 group-hover:scale-110 transition">
+                    <i class='bx bxs-car text-9xl'></i>
+                </div>
+                <h2 class="text-2xl font-bold uppercase italic">🏎️ Grand Prix</h2>
+                <div id="score-race" class="best-score">Recorde: 0</div>
+            </a>
+
+        </div>
+
+        <p class="mt-8 text-xs text-gray-500 text-center">
+            Necessário câmera frontal.<br>Afaste-se para jogar.
+        </p>
+    </div>
+
+    <script src="js/app.js"></script>
 </body>
 </html>
