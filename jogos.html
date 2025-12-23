@@ -3,14 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>thIAguinho Arcade Engine | Kinet</title>
+    <title>thIAguinho Arcade Engine | Kinet Full Body</title>
+    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; color: #ffcc00; font-family: sans-serif; }
-        #loading { position: absolute; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; }
-        #video-container { position: absolute; bottom: 20px; right: 20px; width: 120px; height: 160px; border: 2px solid #ffcc00; z-index: 10; border-radius: 10px; overflow: hidden; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', sans-serif; }
+        #hud { position: absolute; top: 0; width: 100%; padding: 20px; z-index: 50; display: flex; justify-content: space-between; pointer-events: none; }
+        .hud-box { background: rgba(0,0,0,0.7); padding: 15px; border-radius: 12px; color: white; border-left: 5px solid #ffcc00; backdrop-filter: blur(5px); }
+        /* Garante que o vídeo da câmera esteja sempre visível no canto */
+        #video-container { position: absolute; bottom: 20px; right: 20px; width: 160px; height: 120px; border: 3px solid #ffcc00; border-radius: 15px; overflow: hidden; z-index: 100; background: #222; }
         video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        #debug-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; font-size: 12px; pointer-events: none; z-index: 20; }
-        .back-btn { position: fixed; top: 10px; right: 10px; z-index: 110; background: #cc0000; color: white; border: none; padding: 10px 15px; border-radius: 20px; cursor: pointer; }
+        #loading { position: absolute; top: 0; width: 100%; height: 100%; background: radial-gradient(circle, #222, #000); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #ffcc00; z-index: 200; }
+        .spinner { border: 5px solid #333; border-top: 5px solid #ffcc00; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .back-btn { position: fixed; top: 20px; right: 20px; z-index: 150; background: #cc0000; color: white; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -19,86 +24,125 @@
     <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.umd.js"></script>
 </head>
 <body>
-    <button onclick="window.location.href='index.html'" class="back-btn">VOLTAR</button>
+    <button onclick="window.location.href='index.html'" class="back-btn"><i class='bx bx-x'></i></button>
+
     <div id="loading">
-        <h2>INICIALIZANDO IA...</h2>
-        <p id="load-info">Aguardando câmera e GPU...</p>
+        <div class="spinner"></div>
+        <h2>SINCRO KINET</h2>
+        <p id="load-info">Aguardando IA e Mascote...</p>
     </div>
-    <div id="debug-panel">
-        <div>STATUS IA: <span id="ia-status">OFFLINE</span></div>
-        <div>MODELO: <span id="model-status">AGUARDANDO</span></div>
+
+    <div id="hud">
+        <div class="hud-box">
+            <div style="font-size: 10px; text-transform: uppercase; color: #ffcc00;">Sensor de Movimento</div>
+            <div id="ia-status">BUSCANDO CORPO...</div>
+        </div>
+        <div class="hud-box" style="text-align: right;">
+            <div style="font-size: 10px; text-transform: uppercase; color: #ffcc00;">Pontuação</div>
+            <div id="score" style="font-size: 24px; font-weight: bold;">0</div>
+        </div>
     </div>
-    <div id="video-container"><video id="input_video" playsinline></video></div>
+
+    <div id="video-container">
+        <video id="input_video" playsinline></video>
+    </div>
+
     <script>
-        let scene, camera, renderer, model;
-        const debugIA = document.getElementById('ia-status');
-        const debugModel = document.getElementById('model-status');
+        const params = new URLSearchParams(window.location.search);
+        const GAME_MODE = params.get('mode') || 'dance';
+        let scene, camera, renderer, model, score = 0;
 
         function initThreeJS() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x111111);
+            
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(0, 1.6, 4.5);
+            camera.position.set(0, 1.6, 4);
 
-            try {
-                renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, failIfMajorPerformanceCaveat: false });
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                document.body.appendChild(renderer.domElement);
-            } catch (e) {
-                document.getElementById('load-info').innerHTML = "ERRO DE GPU: Placa Intel HD 3000 bloqueada.<br>Use o celular para testar.";
-                return;
-            }
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, failIfMajorPerformanceCaveat: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
 
             const loader = new THREE.GLTFLoader();
             loader.load('./assets/mascote.glb', (gltf) => {
                 model = gltf.scene;
-                // Normalização de escala para evitar boneco invisível
-                const box = new THREE.Box3().setFromObject(model);
-                const size = box.getSize(new THREE.Vector3()).length();
-                model.scale.setScalar(2 / size); 
                 scene.add(model);
-                debugModel.innerText = "CARREGADO OK";
+                // Ajuste automático de escala e posição
+                model.position.set(0, 0, 0);
                 document.getElementById('loading').style.display = 'none';
             }, undefined, (error) => {
-                debugModel.innerText = "ERRO NO ARQUIVO .GLB";
-                console.error(error);
+                document.getElementById('load-info').innerText = "Erro ao carregar mascote.glb";
             });
 
-            scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+            // Iluminação profissional
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            const spotlight = new THREE.SpotLight(0xffcc00, 1);
+            spotlight.position.set(0, 5, 5);
+            scene.add(spotlight);
+
             animate();
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            if(renderer) renderer.render(scene, camera);
+            if (renderer) renderer.render(scene, camera);
         }
 
+        // --- LÓGICA DOS SENSORES (MEDIAPIPE + KALIDOKIT) ---
         const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-        pose.setOptions({modelComplexity: 0, smoothLandmarks: true, minDetectionConfidence: 0.5});
+        pose.setOptions({modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5});
         
         pose.onResults((results) => {
-            debugIA.innerText = results.poseLandmarks ? "DETECTANDO CORPO" : "BUSCANDO VOCÊ...";
-            if (!model || !results.poseLandmarks) return;
-            
+            const statusEl = document.getElementById('ia-status');
+            if (!results.poseLandmarks) {
+                statusEl.innerText = "BUSCANDO CORPO...";
+                return;
+            }
+            statusEl.innerText = "CONECTADO";
+            statusEl.style.color = "#00ff00";
+
+            if (!model) return;
+
+            // Calcula a rotação dos ossos baseada na sua imagem
             const riggedPose = Kalidokit.Pose.solve(results.poseLandmarks, results.poseWorldLandmarks, {runtime: "mediapipe"});
             
-            const applyRotation = (name, rot) => {
-                let bone = model.getObjectByName("mixamorig" + name) || model.getObjectByName(name);
-                if (bone && rot) bone.quaternion.setFromEuler(new THREE.Euler(rot.x, rot.y, rot.z));
+            const rigRotation = (name, rotation) => {
+                if(!rotation) return;
+                // Procura o osso pelo nome padrão ou prefixo Mixamo
+                let bone = model.getObjectByName("mixamorig" + name) || model.getObjectByName(name) || model.getObjectByName("mixamorig_" + name);
+                if (bone) {
+                    const euler = new THREE.Euler(rotation.x, rotation.y, rotation.z);
+                    bone.quaternion.setFromEuler(euler);
+                }
             };
 
-            applyRotation("Hips", riggedPose.Hips);
-            applyRotation("Spine", riggedPose.Spine);
-            applyRotation("RightUpperArm", riggedPose.RightUpperArm);
-            applyRotation("LeftUpperArm", riggedPose.LeftUpperArm);
+            // SENSORES ATIVOS: MAPEAMENTO COMPLETO
+            rigRotation("Hips", riggedPose.Hips);
+            rigRotation("Spine", riggedPose.Spine);
+            rigRotation("Neck", riggedPose.Neck);
+            rigRotation("RightUpperArm", riggedPose.RightUpperArm);
+            rigRotation("RightLowerArm", riggedPose.RightLowerArm);
+            rigRotation("LeftUpperArm", riggedPose.LeftUpperArm);
+            rigRotation("LeftLowerArm", riggedPose.LeftLowerArm);
+            rigRotation("RightUpperLeg", riggedPose.RightUpperLeg);
+            rigRotation("LeftUpperLeg", riggedPose.LeftUpperLeg);
         });
 
-        const cam = new Camera(document.getElementById('input_video'), {
-            onFrame: async () => { await pose.send({image: document.getElementById('input_video')}); },
+        const videoEl = document.getElementById('input_video');
+        const cameraFeed = new Camera(videoEl, {
+            onFrame: async () => { await pose.send({image: videoEl}); },
             width: 480, height: 360
         });
-        cam.start();
+        cameraFeed.start();
+        
         initThreeJS();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
