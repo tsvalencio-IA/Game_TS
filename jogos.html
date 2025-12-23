@@ -3,20 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>thIAguinho Arcade Engine | Kinet Full Body</title>
+    <title>thIAguinho Arcade Engine | Ultimate</title>
     <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', sans-serif; }
+        
+        /* HUD - Interface do Jogador */
         #hud { position: absolute; top: 0; width: 100%; padding: 20px; z-index: 50; display: flex; justify-content: space-between; pointer-events: none; }
-        .hud-box { background: rgba(0,0,0,0.7); padding: 15px; border-radius: 12px; color: white; border-left: 5px solid #ffcc00; backdrop-filter: blur(5px); }
-        /* Garante que o vídeo da câmera esteja sempre visível no canto */
-        #video-container { position: absolute; bottom: 20px; right: 20px; width: 160px; height: 120px; border: 3px solid #ffcc00; border-radius: 15px; overflow: hidden; z-index: 100; background: #222; }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        #loading { position: absolute; top: 0; width: 100%; height: 100%; background: radial-gradient(circle, #222, #000); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #ffcc00; z-index: 200; }
-        .spinner { border: 5px solid #333; border-top: 5px solid #ffcc00; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        .hud-box { background: rgba(0,0,0,0.8); padding: 15px 25px; border-radius: 12px; color: white; border-bottom: 4px solid #ffcc00; backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .score-label { font-size: 12px; text-transform: uppercase; color: #ffcc00; letter-spacing: 2px; font-weight: 800; }
+        .score-val { font-size: 32px; font-weight: 900; font-family: monospace; text-shadow: 0 0 10px rgba(255, 204, 0, 0.5); }
+
+        /* Câmera do Jogador */
+        #video-container { position: absolute; bottom: 20px; right: 20px; width: 180px; height: 135px; border: 4px solid #ffcc00; border-radius: 12px; overflow: hidden; z-index: 100; background: #111; box-shadow: 0 0 20px rgba(255,204,0,0.3); }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: 0.9; }
+
+        /* Tela de Carregamento */
+        #loading { position: absolute; top: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #222, #000); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #ffcc00; z-index: 200; }
+        .spinner { width: 60px; height: 60px; border: 6px solid #333; border-top: 6px solid #ffcc00; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .back-btn { position: fixed; top: 20px; right: 20px; z-index: 150; background: #cc0000; color: white; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        
+        /* Botão Voltar */
+        .back-btn { position: fixed; top: 20px; right: 20px; z-index: 150; background: #cc0000; color: white; width: 45px; height: 45px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: transform 0.2s; }
+        .back-btn:active { transform: scale(0.9); }
     </style>
+
     <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
@@ -24,22 +35,22 @@
     <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.umd.js"></script>
 </head>
 <body>
-    <button onclick="window.location.href='index.html'" class="back-btn"><i class='bx bx-x'></i></button>
+    <button onclick="window.location.href='index.html'" class="back-btn"><i class='bx bx-log-out'></i></button>
 
     <div id="loading">
         <div class="spinner"></div>
-        <h2>SINCRO KINET</h2>
-        <p id="load-info">Aguardando IA e Mascote...</p>
+        <h2 style="font-weight: 900; letter-spacing: 2px;">CARREGANDO ENGINE...</h2>
+        <p id="load-info" style="color: #666; margin-top: 10px;">Inicializando GPU e Sensores</p>
     </div>
 
     <div id="hud">
         <div class="hud-box">
-            <div style="font-size: 10px; text-transform: uppercase; color: #ffcc00;">Sensor de Movimento</div>
-            <div id="ia-status">BUSCANDO CORPO...</div>
+            <div class="score-label">SENSOR IA</div>
+            <div id="ia-status" style="font-size: 18px; font-weight: bold; color: #ff3333;">DESCONECTADO</div>
         </div>
         <div class="hud-box" style="text-align: right;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #ffcc00;">Pontuação</div>
-            <div id="score" style="font-size: 24px; font-weight: bold;">0</div>
+            <div class="score-label">PONTUAÇÃO</div>
+            <div id="score" class="score-val">0</div>
         </div>
     </div>
 
@@ -50,94 +61,261 @@
     <script>
         const params = new URLSearchParams(window.location.search);
         const GAME_MODE = params.get('mode') || 'dance';
-        let scene, camera, renderer, model, score = 0;
+        
+        // Caminhos Absolutos para evitar erro 404
+        const ASSETS = {
+            model: './assets/mascote.glb',
+            road: './assets/estrada.jpg',
+            race: './assets/pista.jpg'
+        };
 
+        let scene, camera, renderer, model, floorMesh;
+        let score = 0, clock = new THREE.Clock();
+
+        // --- SISTEMA GRÁFICO (THREE.JS) ---
         function initThreeJS() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x111111);
-            
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(0, 1.6, 4);
+            // Fundo dinâmico baseado no modo
+            if(GAME_MODE === 'dance') scene.background = new THREE.Color(0x1a0b2e); // Roxo escuro
+            else scene.background = new THREE.Color(0x87CEEB); // Céu azul
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, failIfMajorPerformanceCaveat: false });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            document.body.appendChild(renderer.domElement);
+            // Câmera posicionada para ver o corpo inteiro
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 1.4, 3.5);
 
+            // Renderer com Sombras Ativadas
+            try {
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, failIfMajorPerformanceCaveat: false });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Otimização para celular
+                renderer.shadowMap.enabled = true; // Sombra ativada
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                document.body.appendChild(renderer.domElement);
+            } catch (e) {
+                document.getElementById('load-info').innerHTML = "ERRO FATAL: GPU NÃO SUPORTADA.<br>Tente em um celular moderno.";
+                return;
+            }
+
+            // --- ILUMINAÇÃO DE ESTÚDIO ---
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+            scene.add(hemiLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(5, 10, 7);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            scene.add(dirLight);
+
+            // --- CRIAÇÃO DO CENÁRIO ---
+            createEnvironment();
+
+            // --- CARREGAMENTO DO PERSONAGEM ---
             const loader = new THREE.GLTFLoader();
-            loader.load('./assets/mascote.glb', (gltf) => {
+            loader.load(ASSETS.model, (gltf) => {
                 model = gltf.scene;
-                scene.add(model);
-                // Ajuste automático de escala e posição
-                model.position.set(0, 0, 0);
-                document.getElementById('loading').style.display = 'none';
-            }, undefined, (error) => {
-                document.getElementById('load-info').innerText = "Erro ao carregar mascote.glb";
-            });
+                
+                // Configurações de sombra e material para tirar o aspecto de "gesso"
+                model.traverse((o) => {
+                    if (o.isMesh) {
+                        o.castShadow = true;
+                        o.receiveShadow = true;
+                        // Se o modelo vier sem textura (branco), aplica uma cor padrão
+                        if(!o.material.map) {
+                            o.material.color.setHex(0xFFCC00); // Amarelo thIAguinho
+                        }
+                    }
+                });
 
-            // Iluminação profissional
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-            const spotlight = new THREE.SpotLight(0xffcc00, 1);
-            spotlight.position.set(0, 5, 5);
-            scene.add(spotlight);
+                // Normalização de Tamanho (Evita boneco gigante ou minúsculo)
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3()).length();
+                const scaleFactor = 2.5 / size; // Ajusta para ~2.5 metros na cena
+                model.scale.setScalar(scaleFactor);
+                
+                // Centraliza no chão
+                model.position.set(0, 0, 0);
+
+                scene.add(model);
+                document.getElementById('loading').style.display = 'none';
+                console.log("thIAguinho pronto para ação.");
+            }, 
+            (xhr) => {
+                const percent = Math.round((xhr.loaded / xhr.total * 100));
+                document.getElementById('load-info').innerText = `Baixando Mascote: ${percent}%`;
+            },
+            (error) => {
+                console.error(error);
+                document.getElementById('load-info').innerText = "ERRO: Mascote.glb não encontrado na pasta assets!";
+            });
 
             animate();
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            if (renderer) renderer.render(scene, camera);
+        // --- SISTEMA DE CENÁRIOS ---
+        function createEnvironment() {
+            const textureLoader = new THREE.TextureLoader();
+
+            if (GAME_MODE === 'dance') {
+                // PISTA DE DISCOTECA PROCEDURAL (Canvas Texture)
+                const canvas = document.createElement('canvas');
+                canvas.width = 512; canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#111'; ctx.fillRect(0,0,512,512);
+                ctx.fillStyle = '#ff00cc'; // Neon Pink
+                for(let i=0; i<8; i++) {
+                    for(let j=0; j<8; j++) {
+                        if((i+j)%2===0) ctx.fillRect(i*64, j*64, 64, 64);
+                    }
+                }
+                const floorTex = new THREE.CanvasTexture(canvas);
+                floorTex.wrapS = THREE.RepeatWrapping;
+                floorTex.wrapT = THREE.RepeatWrapping;
+                floorTex.repeat.set(4, 4);
+                
+                const geo = new THREE.PlaneGeometry(20, 20);
+                const mat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.2, metalness: 0.5 });
+                floorMesh = new THREE.Mesh(geo, mat);
+                floorMesh.rotation.x = -Math.PI / 2;
+                floorMesh.receiveShadow = true;
+                scene.add(floorMesh);
+
+                // Luzes de Balada
+                const spot1 = new THREE.SpotLight(0x00ffff, 20);
+                spot1.position.set(-5, 5, -5);
+                scene.add(spot1);
+                
+            } else {
+                // PISTA DE CORRIDA / RUA
+                const texUrl = (GAME_MODE === 'race') ? ASSETS.race : ASSETS.road;
+                textureLoader.load(texUrl, (tex) => {
+                    tex.wrapS = THREE.RepeatWrapping;
+                    tex.wrapT = THREE.RepeatWrapping;
+                    tex.repeat.set(1, 10);
+                    
+                    const geo = new THREE.PlaneGeometry(6, 60);
+                    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+                    floorMesh = new THREE.Mesh(geo, mat);
+                    floorMesh.rotation.x = -Math.PI / 2;
+                    floorMesh.receiveShadow = true;
+                    // Move a pista para começar debaixo do boneco
+                    floorMesh.position.z = -20; 
+                    scene.add(floorMesh);
+                });
+            }
         }
 
-        // --- LÓGICA DOS SENSORES (MEDIAPIPE + KALIDOKIT) ---
+        // --- LOOP DO JOGO ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            // Animação do Cenário (Corrida Infinita)
+            if (floorMesh && (GAME_MODE === 'run' || GAME_MODE === 'race')) {
+                // Move a textura para dar ilusão de velocidade
+                if(floorMesh.material.map) {
+                    floorMesh.material.map.offset.y -= 0.05; // Velocidade
+                    score += 1;
+                    document.getElementById('score').innerText = Math.floor(score/10);
+                }
+            }
+
+            if (renderer && scene && camera) renderer.render(scene, camera);
+        }
+
+        // --- SISTEMA DE INTEGRAÇÃO DE SENSORES (KINET CORE) ---
         const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-        pose.setOptions({modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5});
         
+        pose.setOptions({
+            modelComplexity: 1, // 0=Rápido, 1=Preciso, 2=Pesado
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
         pose.onResults((results) => {
             const statusEl = document.getElementById('ia-status');
+            
             if (!results.poseLandmarks) {
-                statusEl.innerText = "BUSCANDO CORPO...";
+                statusEl.innerText = "BUSCANDO...";
+                statusEl.style.color = "#ff3333";
                 return;
             }
+            
             statusEl.innerText = "CONECTADO";
             statusEl.style.color = "#00ff00";
 
             if (!model) return;
 
-            // Calcula a rotação dos ossos baseada na sua imagem
-            const riggedPose = Kalidokit.Pose.solve(results.poseLandmarks, results.poseWorldLandmarks, {runtime: "mediapipe"});
-            
-            const rigRotation = (name, rotation) => {
+            // Resolve a cinemática do corpo (Converte pontos 2D em Rotação 3D)
+            const riggedPose = Kalidokit.Pose.solve(results.poseLandmarks, results.poseWorldLandmarks, {
+                runtime: "mediapipe",
+                video: document.getElementById('input_video')
+            });
+
+            // Função Mestre de Rigging (Tenta todos os nomes possíveis de ossos)
+            const mapBone = (name, rotation) => {
                 if(!rotation) return;
-                // Procura o osso pelo nome padrão ou prefixo Mixamo
-                let bone = model.getObjectByName("mixamorig" + name) || model.getObjectByName(name) || model.getObjectByName("mixamorig_" + name);
+                
+                // Lista de tentativas de nomes para compatibilidade máxima
+                const possibleNames = [
+                    "mixamorig" + name,
+                    "mixamorig_" + name,
+                    name,
+                    "mixamorig:" + name
+                ];
+
+                let bone = null;
+                for (let n of possibleNames) {
+                    bone = model.getObjectByName(n);
+                    if (bone) break;
+                }
+
                 if (bone) {
-                    const euler = new THREE.Euler(rotation.x, rotation.y, rotation.z);
-                    bone.quaternion.setFromEuler(euler);
+                    // Suavização (Interpolação) para movimento menos "tremido"
+                    const targetQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(rotation.x, rotation.y, rotation.z));
+                    bone.quaternion.slerp(targetQ, 0.5); // 0.5 = Fator de suavização
                 }
             };
 
-            // SENSORES ATIVOS: MAPEAMENTO COMPLETO
-            rigRotation("Hips", riggedPose.Hips);
-            rigRotation("Spine", riggedPose.Spine);
-            rigRotation("Neck", riggedPose.Neck);
-            rigRotation("RightUpperArm", riggedPose.RightUpperArm);
-            rigRotation("RightLowerArm", riggedPose.RightLowerArm);
-            rigRotation("LeftUpperArm", riggedPose.LeftUpperArm);
-            rigRotation("LeftLowerArm", riggedPose.LeftLowerArm);
-            rigRotation("RightUpperLeg", riggedPose.RightUpperLeg);
-            rigRotation("LeftUpperLeg", riggedPose.LeftUpperLeg);
+            // --- MAPEAMENTO DE CORPO INTEIRO (FULL BODY) ---
+            // Tronco
+            mapBone("Hips", riggedPose.Hips);
+            mapBone("Spine", riggedPose.Spine);
+            mapBone("Spine1", riggedPose.Spine1);
+            mapBone("Spine2", riggedPose.Spine2);
+            mapBone("Neck", riggedPose.Neck);
+            mapBone("Head", riggedPose.Head);
+
+            // Braços
+            mapBone("LeftArm", riggedPose.LeftUpperArm);
+            mapBone("LeftForeArm", riggedPose.LeftLowerArm);
+            mapBone("LeftHand", riggedPose.LeftHand);
+            mapBone("RightArm", riggedPose.RightUpperArm);
+            mapBone("RightForeArm", riggedPose.RightLowerArm);
+            mapBone("RightHand", riggedPose.RightHand);
+
+            // Pernas
+            mapBone("LeftUpLeg", riggedPose.LeftUpperLeg);
+            mapBone("LeftLeg", riggedPose.LeftLowerLeg);
+            mapBone("LeftFoot", riggedPose.LeftFoot);
+            mapBone("RightUpLeg", riggedPose.RightUpperLeg);
+            mapBone("RightLeg", riggedPose.RightLowerLeg);
+            mapBone("RightFoot", riggedPose.RightFoot);
         });
 
+        // Inicialização da Câmera
         const videoEl = document.getElementById('input_video');
         const cameraFeed = new Camera(videoEl, {
             onFrame: async () => { await pose.send({image: videoEl}); },
-            width: 480, height: 360
+            width: 640, height: 480
         });
         cameraFeed.start();
         
+        // Inicia o motor gráfico
         initThreeJS();
 
+        // Responsividade
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
