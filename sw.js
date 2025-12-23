@@ -1,11 +1,10 @@
-const CACHE_NAME = 'thiaguinho-arcade-v6-fix';
+const CACHE_NAME = 'thiaguinho-kinet-v7';
 const ASSETS = [
     './',
     './index.html',
     './jogos.html',
     './js/app.js',
     './manifest.json',
-    './assets/mascote.glb',
     './assets/mascote_perfil.jpg'
 ];
 
