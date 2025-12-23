@@ -3,95 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>thIAguinho Arcade | Master Engine</title>
+    <title>thIAguinho Arcade | Gold Edition</title>
     
     <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     
     <style>
-        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', sans-serif; }
+        /* --- ESTILOS VISUAIS DE ALTA PERFORMANCE --- */
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Roboto, sans-serif; }
 
-        /* TELA DE CARREGAMENTO */
+        /* TELA DE LOADING CINEMATOGRÁFICA */
         #loader {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
             z-index: 9999; display: flex; flex-direction: column;
             justify-content: center; align-items: center; color: #ffcc00;
         }
         .spinner {
-            width: 70px; height: 70px; border: 8px solid #333;
+            width: 80px; height: 80px; border: 8px solid #333;
             border-top: 8px solid #ffcc00; border-radius: 50%;
-            animation: spin 1s linear infinite; margin-bottom: 20px;
+            animation: spin 1s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite; margin-bottom: 20px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #loader-text { font-size: 18px; letter-spacing: 2px; font-weight: bold; text-transform: uppercase; }
-        #loader-sub { font-size: 12px; color: #666; margin-top: 5px; }
+        #loader-text { font-size: 24px; letter-spacing: 4px; font-weight: 900; text-transform: uppercase; text-shadow: 0 0 10px #ffcc00; }
+        #loader-sub { font-size: 14px; color: #888; margin-top: 10px; font-family: monospace; }
 
-        /* HUD SUPERIOR (PONTOS E STATUS) */
-        #hud {
-            position: absolute; top: 0; width: 100%; padding: 20px;
-            display: flex; justify-content: space-between; align-items: flex-start;
-            z-index: 100; pointer-events: none;
+        /* HUD (INTERFACE DO JOGADOR) */
+        #hud-layer {
+            position: absolute; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100;
+            padding: 20px; display: flex; flex-direction: column; justify-content: space-between;
         }
+        
+        .top-bar { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; }
+        
         .panel {
-            background: rgba(0, 0, 0, 0.85); padding: 10px 20px;
-            border-radius: 12px; border-bottom: 4px solid #ffcc00;
-            color: white; backdrop-filter: blur(5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            min-width: 120px;
+            background: rgba(10, 10, 10, 0.85); padding: 10px 20px;
+            border-radius: 12px; border-left: 4px solid #ffcc00;
+            color: white; backdrop-filter: blur(8px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.6);
+            min-width: 140px; transform: skewX(-5deg);
         }
-        .panel-label { font-size: 10px; color: #aaa; letter-spacing: 1px; margin-bottom: 2px; }
-        .panel-val { font-size: 24px; font-weight: 800; color: #fff; font-family: monospace; }
-        .highlight { color: #ffcc00; }
+        .panel h3 { margin: 0; font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 2px; }
+        .panel div { margin: 0; font-size: 28px; font-weight: 900; color: #fff; font-family: monospace; }
+        .highlight-text { color: #ffcc00; text-shadow: 0 0 10px rgba(255, 204, 0, 0.5); }
 
-        /* BARRA DE ENERGIA LATERAL */
-        #energy-container {
+        /* BARRA DE ENERGIA (VERTICAL) */
+        #energy-system {
             position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
-            width: 25px; height: 250px; background: rgba(0,0,0,0.8);
+            width: 30px; height: 300px; background: rgba(0,0,0,0.9);
             border: 2px solid #555; border-radius: 15px; overflow: hidden;
-            z-index: 90; display: none; /* Ativo apenas em gameplay */
+            z-index: 90; display: none; /* Ativado via JS */
+            box-shadow: 0 0 15px rgba(0,0,0,0.8);
         }
-        #energy-fill {
+        #energy-bar {
             position: absolute; bottom: 0; width: 100%; height: 0%;
             background: linear-gradient(to top, #ff0000, #ffff00, #00ff00);
             transition: height 0.1s linear;
         }
 
-        /* MONITOR DA CÂMERA (CANTO INFERIOR) */
-        #cam-monitor {
+        /* MONITOR DA CÂMERA (PIP) */
+        #camera-feed {
             position: absolute; bottom: 20px; right: 20px;
             width: 160px; height: 120px; background: #000;
             border: 3px solid #ffcc00; border-radius: 12px;
             overflow: hidden; z-index: 100;
-            box-shadow: 0 0 20px rgba(255, 204, 0, 0.2);
+            box-shadow: 0 0 20px rgba(255, 204, 0, 0.3);
         }
         video {
             width: 100%; height: 100%; object-fit: cover;
-            transform: scaleX(-1); /* Espelhar câmera */
-            opacity: 0.9;
+            transform: scaleX(-1); opacity: 0.8;
         }
 
-        /* BOTÃO SAIR */
+        /* MENSAGEM DE ERRO (FEEDBACK AO USUÁRIO) */
+        #error-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 10000;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        .error-box {
+            background: #222; border: 2px solid red; color: white; padding: 30px;
+            border-radius: 10px; text-align: center; max-width: 90%;
+        }
+
+        /* BOTÃO VOLTAR */
         .btn-exit {
-            position: fixed; top: 20px; right: 20px; width: 45px; height: 45px;
+            position: fixed; top: 20px; right: 20px; width: 50px; height: 50px;
             background: #cc0000; color: white; border-radius: 50%;
-            border: none; cursor: pointer; z-index: 200; font-size: 24px;
+            border: none; cursor: pointer; z-index: 200; font-size: 28px;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }
-        .btn-exit:active { transform: scale(0.9); }
-
-        /* MENSAGEM DE ERRO (DEBUG) */
-        #error-msg {
-            display: none; position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%); background: rgba(200, 0, 0, 0.9);
-            color: white; padding: 20px; border-radius: 10px; z-index: 10000;
-            text-align: center; max-width: 80%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5); pointer-events: auto;
         }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/DRACOLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.umd.js"></script>
@@ -101,207 +107,208 @@
     <div id="loader">
         <div class="spinner"></div>
         <div id="loader-text">CARREGANDO ENGINE</div>
-        <div id="loader-sub">Inicializando GPU e IA...</div>
+        <div id="loader-sub">Inicializando GPU, IA e Ativos 3D...</div>
     </div>
 
-    <div id="error-msg"></div>
-
-    <button class="btn-exit" onclick="window.location.href='index.html'"><i class='bx bx-log-out'></i></button>
-
-    <div id="hud">
-        <div class="panel">
-            <div class="panel-label">MODO DE JOGO</div>
-            <div id="ui-mode" class="panel-val">ARCADE</div>
-        </div>
-        <div class="panel" style="text-align: right;">
-            <div class="panel-label">PONTUAÇÃO</div>
-            <div id="ui-score" class="panel-val highlight">0</div>
+    <div id="error-modal">
+        <div class="error-box">
+            <h2 style="color: red;">ERRO DE SISTEMA</h2>
+            <p id="error-txt">Ocorreu um erro inesperado.</p>
+            <button onclick="window.location.reload()" style="padding: 10px; margin-top: 10px;">REINICIAR</button>
         </div>
     </div>
 
-    <div id="energy-container">
-        <div id="energy-fill"></div>
+    <button class="btn-exit" onclick="window.location.href='index.html'"><i class='bx bx-x'></i></button>
+
+    <div id="hud-layer">
+        <div class="top-bar">
+            <div class="panel">
+                <h3>MODO ATUAL</h3>
+                <div id="ui-mode">ARCADE</div>
+            </div>
+            <div class="panel" style="text-align: right; border-left: none; border-right: 4px solid #ffcc00;">
+                <h3>PONTUAÇÃO</h3>
+                <div id="ui-score" class="highlight-text">0</div>
+            </div>
+        </div>
+        </div>
+
+    <div id="energy-system">
+        <div id="energy-bar"></div>
     </div>
 
-    <div id="cam-monitor">
+    <div id="camera-feed">
         <video id="input_video" playsinline></video>
     </div>
 
     <script>
-        // --- CONFIGURAÇÃO GLOBAL ---
+        /**
+         * thIAguinho Arcade Engine - Master Gold Version
+         * Integrando: Gráficos Avançados, Draco Compression, Full Body Rigging, Gameplay Loop.
+         */
+
+        // --- CONFIGURAÇÃO E VARIÁVEIS GLOBAIS ---
         const params = new URLSearchParams(window.location.search);
-        const GAME_MODE = params.get('mode') || 'dance'; // dance, run, race
+        const GAME_MODE = params.get('mode') || 'dance'; 
+        
         const ASSETS = {
             mascote: './assets/mascote.glb',
             pista_corrida: './assets/estrada.jpg',
             pista_dance: './assets/pista.jpg'
         };
 
-        // VARIÁVEIS DE ESTADO
         let scene, camera, renderer, model, clock;
-        let mixer; // Para animações se houver
         let floorMesh, environmentGroup;
-        let isLoaded = false;
+        let mixer; // Para animações nativas se houver
         let score = 0;
-        let speed = 0;
-        
-        // Variáveis de Gameplay
-        let lastShoulderY = 0; // Para detectar corrida
-        let headPositionX = 0; // Para detectar inclinação
-        let energyLevel = 0; // Para dança
+        let gameSpeed = 0;
+        let isGameActive = false;
 
-        // --- SISTEMA DE INICIALIZAÇÃO ---
+        // Variáveis de Lógica de Movimento
+        let lastShoulderY = 0;
+        let frameCount = 0;
+
+        // --- INICIALIZAÇÃO ---
         window.onload = function() {
-            updateUI();
+            setupUI();
             init3D();
             initAI();
         };
 
-        function updateUI() {
-            const label = document.getElementById('ui-mode');
-            const energy = document.getElementById('energy-container');
-            
+        function setupUI() {
+            const uiMode = document.getElementById('ui-mode');
+            const energySys = document.getElementById('energy-system');
+
             if (GAME_MODE === 'run') {
-                label.innerText = "CORRIDA";
-                energy.style.display = 'block';
+                uiMode.innerText = "CORRIDA";
+                energySys.style.display = "block";
             } else if (GAME_MODE === 'dance') {
-                label.innerText = "DANÇA";
-                energy.style.display = 'block';
-            } else if (GAME_MODE === 'race') {
-                label.innerText = "G. PRIX";
+                uiMode.innerText = "DANÇA";
+                energySys.style.display = "block";
+            } else {
+                uiMode.innerText = "G. PRIX";
             }
         }
 
-        function showError(msg) {
-            const el = document.getElementById('error-msg');
-            el.innerText = msg;
-            el.style.display = 'block';
+        function fatalError(msg) {
             document.getElementById('loader').style.display = 'none';
+            document.getElementById('error-modal').style.display = 'flex';
+            document.getElementById('error-txt').innerText = msg;
+            console.error(msg);
         }
 
-        // --- MOTOR GRÁFICO (THREE.JS) ---
+        function logStatus(msg) {
+            document.getElementById('loader-sub').innerText = msg;
+        }
+
+        // --- ENGINE 3D (THREE.JS) ---
         function init3D() {
             clock = new THREE.Clock();
             scene = new THREE.Scene();
 
-            // 1. Configuração de Cena (Ambiente)
+            // 1. Configuração de Cena (Cores e Névoa)
             if (GAME_MODE === 'dance') {
-                scene.background = new THREE.Color(0x0a001a); // Roxo escuro
-                scene.fog = new THREE.FogExp2(0x0a001a, 0.02);
+                scene.background = new THREE.Color(0x0f0518); // Roxo Profundo
+                scene.fog = new THREE.FogExp2(0x0f0518, 0.03);
             } else {
-                scene.background = new THREE.Color(0x87CEEB); // Céu azul
-                scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
+                scene.background = new THREE.Color(0x87CEEB); // Céu Azul
+                scene.fog = new THREE.Fog(0x87CEEB, 20, 80);
             }
 
             // 2. Câmera
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(0, 1.6, 4.5); // Altura dos olhos, afastada
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 1.6, 4.2);
 
-            // 3. Renderizador (Com Fix Intel HD)
+            // 3. Renderizador (Com Hacks para Intel HD 3000)
             try {
                 renderer = new THREE.WebGLRenderer({ 
                     antialias: true, 
                     alpha: true, 
-                    failIfMajorPerformanceCaveat: false, // OBRIGATÓRIO PARA SUA PLACA
+                    failIfMajorPerformanceCaveat: false, 
                     powerPreference: "high-performance"
                 });
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                renderer.shadowMap.enabled = true; // Sombras reais
+                renderer.shadowMap.enabled = true;
                 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
                 renderer.outputEncoding = THREE.sRGBEncoding;
                 document.body.appendChild(renderer.domElement);
             } catch (e) {
-                showError("ERRO FATAL: Sua placa de vídeo não suporta WebGL 3D.");
+                fatalError("Sua placa de vídeo não suporta a tecnologia necessária.");
                 return;
             }
 
-            // 4. Luzes (Estúdio Profissional)
-            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-            scene.add(hemiLight);
+            // 4. Luzes de Estúdio
+            const ambient = new THREE.HemisphereLight(0xffffff, 0x444444, 0.7);
+            scene.add(ambient);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-            dirLight.position.set(5, 10, 7);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 1024;
-            dirLight.shadow.mapSize.height = 1024;
-            scene.add(dirLight);
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            mainLight.position.set(5, 10, 7);
+            mainLight.castShadow = true;
+            mainLight.shadow.mapSize.width = 1024;
+            mainLight.shadow.mapSize.height = 1024;
+            scene.add(mainLight);
 
-            // 5. Criação do Cenário (Chão Infinito)
-            createEnvironment();
+            // 5. Cenário Procedural (Pistas)
+            buildEnvironment();
 
-            // 6. Carregamento do Mascote
+            // 6. Carregamento do Mascote (Com Draco Decoder)
             loadMascot();
 
-            // 7. Iniciar Loop
+            // 7. Loop de Renderização
             animate();
         }
 
-        function createEnvironment() {
+        function buildEnvironment() {
             environmentGroup = new THREE.Group();
             scene.add(environmentGroup);
 
             const texLoader = new THREE.TextureLoader();
             
-            // Função auxiliar para gerar textura se a imagem falhar
-            const createFallbackTexture = (color1, color2) => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 64; canvas.height = 64;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = color1; ctx.fillRect(0,0,64,64);
-                ctx.fillStyle = color2; ctx.fillRect(0,0,32,32); ctx.fillRect(32,32,32,32);
-                const tex = new THREE.CanvasTexture(canvas);
-                tex.wrapS = THREE.RepeatWrapping;
-                tex.wrapT = THREE.RepeatWrapping;
-                tex.magFilter = THREE.NearestFilter;
-                return tex;
+            // Função para criar textura falsa se a imagem não carregar
+            const createFallbackTex = (c1, c2) => {
+                const cvs = document.createElement('canvas'); cvs.width = 64; cvs.height = 64;
+                const cx = cvs.getContext('2d');
+                cx.fillStyle = c1; cx.fillRect(0,0,64,64);
+                cx.fillStyle = c2; cx.fillRect(0,0,32,32); cx.fillRect(32,32,32,32);
+                const t = new THREE.CanvasTexture(cvs);
+                t.wrapS = t.wrapT = THREE.RepeatWrapping;
+                t.magFilter = THREE.NearestFilter;
+                return t;
             };
 
             let floorTex;
+            const geo = new THREE.PlaneGeometry(12, 120);
+
             if (GAME_MODE === 'dance') {
-                // Piso de Balada
-                try {
-                    floorTex = texLoader.load(ASSETS.pista_dance, null, null, () => {
-                        console.warn("Textura pista não encontrada, usando gerada.");
-                        floorMesh.material.map = createFallbackTexture('#ff00cc', '#330033');
-                        floorMesh.material.needsUpdate = true;
-                    });
-                } catch(e) { floorTex = createFallbackTexture('#ff00cc', '#330033'); }
+                // Piso Neon
+                floorTex = createFallbackTex('#ff00cc', '#220022'); // Fallback padrão
+                texLoader.load(ASSETS.pista_dance, (t) => {
+                    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+                    t.repeat.set(6, 60);
+                    floorMesh.material.map = t;
+                    floorMesh.material.needsUpdate = true;
+                });
                 
-                floorTex.wrapS = THREE.RepeatWrapping;
-                floorTex.wrapT = THREE.RepeatWrapping;
-                floorTex.repeat.set(10, 10);
-                
-                // Adiciona Luzes de Neon
-                const spot = new THREE.SpotLight(0x00ffff, 5);
+                // Adiciona holofotes
+                const spot = new THREE.SpotLight(0x00ffff, 10);
                 spot.position.set(-5, 0, -5);
                 scene.add(spot);
-
             } else {
-                // Estrada
-                try {
-                    floorTex = texLoader.load(ASSETS.pista_corrida, null, null, () => {
-                        console.warn("Textura estrada não encontrada, usando gerada.");
-                        floorMesh.material.map = createFallbackTexture('#333333', '#444444');
-                        floorMesh.material.needsUpdate = true;
-                    });
-                } catch(e) { floorTex = createFallbackTexture('#333333', '#444444'); }
-
-                floorTex.wrapS = THREE.RepeatWrapping;
-                floorTex.wrapT = THREE.RepeatWrapping;
-                floorTex.repeat.set(1, 20); // Estrada longa
+                // Asfalto
+                floorTex = createFallbackTex('#333', '#555');
+                texLoader.load(ASSETS.pista_corrida, (t) => {
+                    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+                    t.repeat.set(1, 20);
+                    floorMesh.material.map = t;
+                    floorMesh.material.needsUpdate = true;
+                });
             }
 
-            const geo = new THREE.PlaneGeometry(10, 100);
-            const mat = new THREE.MeshStandardMaterial({ 
-                map: floorTex, 
-                roughness: 0.8,
-                color: 0xffffff
-            });
-            
+            const mat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8 });
             floorMesh = new THREE.Mesh(geo, mat);
             floorMesh.rotation.x = -Math.PI / 2;
-            floorMesh.position.z = -30; // Começa atrás do boneco
+            floorMesh.position.z = -30;
             floorMesh.receiveShadow = true;
             environmentGroup.add(floorMesh);
         }
@@ -309,121 +316,166 @@
         function loadMascot() {
             const loader = new THREE.GLTFLoader();
             
+            // CONFIGURAÇÃO DRACO (Para abrir arquivos comprimidos)
+            const dracoLoader = new THREE.DRACOLoader();
+            dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
+            loader.setDRACOLoader(dracoLoader);
+
+            logStatus("Baixando e Descomprimindo Mascote...");
+
             loader.load(ASSETS.mascote, (gltf) => {
                 model = gltf.scene;
                 
-                // --- FIX DE MATERIAIS E SOMBRAS ---
-                model.traverse((node) => {
-                    if (node.isMesh) {
-                        node.castShadow = true;
-                        node.receiveShadow = true;
-                        // Se não tiver textura (branco), aplica Dourado thIAguinho
-                        if (!node.material.map) {
-                            node.material = new THREE.MeshStandardMaterial({
-                                color: 0xFFCC00,
-                                roughness: 0.4,
-                                metalness: 0.3
+                // Processamento de Materiais e Sombras
+                model.traverse((o) => {
+                    if (o.isMesh) {
+                        o.castShadow = true;
+                        o.receiveShadow = true;
+                        // Fallback Dourado se vier sem textura
+                        if (!o.material.map) {
+                            o.material = new THREE.MeshStandardMaterial({
+                                color: 0xFFD700, roughness: 0.3, metalness: 0.5
                             });
                         }
                     }
                 });
 
-                // --- NORMALIZAÇÃO DE ESCALA ---
+                // Auto-Escala (Evita boneco gigante ou formiga)
                 const box = new THREE.Box3().setFromObject(model);
                 const size = box.getSize(new THREE.Vector3()).length();
                 if (size > 0) {
-                    const scaleFactor = 2.5 / size; // Define altura para ~2.5 unidades
-                    model.scale.setScalar(scaleFactor);
+                    const scale = 2.5 / size;
+                    model.scale.setScalar(scale);
                 }
                 
-                // Centralizar
-                const center = box.getCenter(new THREE.Vector3());
-                model.position.x = -center.x * model.scale.x;
-                model.position.z = 0;
-                model.position.y = 0; // Pés no chão
-
+                // Posição inicial
+                model.position.set(0, 0, 0);
                 scene.add(model);
                 
-                // Fim do Loading
-                isLoaded = true;
+                // Finaliza Loading
                 document.getElementById('loader').style.display = 'none';
+                isGameActive = true;
 
             }, (xhr) => {
-                // Progresso
-                let p = (xhr.loaded / xhr.total * 100);
-                document.getElementById('loader-sub').innerText = `Baixando Modelo: ${Math.round(p)}%`;
-            }, (error) => {
-                showError("ERRO: O arquivo 'mascote.glb' não está na pasta 'assets'.");
-                console.error(error);
+                const p = (xhr.loaded / xhr.total * 100);
+                if(p < 100) logStatus(`Baixando... ${Math.round(p)}%`);
+                else logStatus("Processando Geometria...");
+            }, (err) => {
+                fatalError("Erro ao carregar 'assets/mascote.glb'. Verifique se o arquivo existe.");
             });
         }
 
-        // --- SISTEMA DE IA E RIGGING (MediaPipe) ---
+        // --- GAMEPLAY LOOP (Lógica do Jogo) ---
+        function updateGameplayLogic(landmarks) {
+            if (!isGameActive || !landmarks) return;
+
+            // 1. MODO CORRIDA (Run)
+            if (GAME_MODE === 'run') {
+                const shoulderY = (landmarks[11].y + landmarks[12].y) / 2;
+                const delta = Math.abs(shoulderY - lastShoulderY);
+                lastShoulderY = shoulderY;
+
+                // Detecta pulo/corrida (delta > 0.003)
+                if (delta > 0.003) gameSpeed = Math.min(gameSpeed + 2, 100);
+                else gameSpeed *= 0.95; // Desaceleração
+            } 
+            
+            // 2. MODO DANÇA (Dance)
+            else if (GAME_MODE === 'dance') {
+                // Mantém ritmo se houver qualquer movimento
+                gameSpeed = 60; 
+            }
+
+            // 3. MODO RACE (Grand Prix)
+            else if (GAME_MODE === 'race') {
+                gameSpeed = 80; // Velocidade fixa
+                // Inclinação da cabeça move o boneco lateralmente
+                const headX = (0.5 - landmarks[0].x) * 6; 
+                if(model) {
+                    model.position.x += (headX - model.position.x) * 0.1;
+                    model.rotation.z = model.position.x * -0.15; // Inclinação da moto
+                    model.rotation.y = Math.PI + (model.position.x * 0.2);
+                }
+            }
+
+            // Atualiza UI de Energia
+            const bar = document.getElementById('energy-bar');
+            if (bar) bar.style.height = `${gameSpeed}%`;
+
+            // Efeitos de Movimento
+            if (gameSpeed > 5) {
+                // Move o chão
+                if (floorMesh && floorMesh.material.map) {
+                    floorMesh.material.map.offset.y -= (gameSpeed * 0.0005);
+                }
+                
+                // Pontuação
+                score += Math.floor(gameSpeed / 10);
+                document.getElementById('ui-score').innerText = score;
+                
+                // Animação procedural de corrida (pequeno bounce)
+                if (model && GAME_MODE === 'run') {
+                    model.position.y = Math.abs(Math.sin(Date.now() * 0.01)) * 0.1;
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (renderer && scene && camera) renderer.render(scene, camera);
+        }
+
+        // --- SISTEMA DE IA E RIGGING (MediaPipe + Kalidokit) ---
         function initAI() {
             const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
             
             pose.setOptions({
-                modelComplexity: 1, // 0=Lite, 1=Full, 2=Heavy
+                modelComplexity: 1,
                 smoothLandmarks: true,
                 minDetectionConfidence: 0.5,
                 minTrackingConfidence: 0.5
             });
 
-            pose.onResults(onPoseResults);
+            pose.onResults((results) => {
+                if (!model || !results.poseLandmarks) return;
 
-            const video = document.getElementById('input_video');
-            const camera = new Camera(video, {
-                onFrame: async () => { await pose.send({image: video}); },
+                // 1. Atualiza Gameplay
+                updateGameplayLogic(results.poseLandmarks);
+
+                // 2. Resolve Cinemática
+                const riggedPose = Kalidokit.Pose.solve(results.poseLandmarks, results.poseWorldLandmarks, {
+                    runtime: "mediapipe",
+                    video: document.getElementById('input_video')
+                });
+
+                // 3. Aplica Rotação aos Ossos (Rigging Universal)
+                rigCharacter(riggedPose);
+            });
+
+            const vid = document.getElementById('input_video');
+            const cam = new Camera(vid, {
+                onFrame: async () => { await pose.send({image: vid}); },
                 width: 640, height: 480
             });
-            camera.start();
+            cam.start();
         }
 
-        function onPoseResults(results) {
-            if (!model || !results.poseLandmarks) return;
-
-            // 1. Solver Cinemático (Transforma 2D em 3D)
-            const riggedPose = Kalidokit.Pose.solve(results.poseLandmarks, results.poseWorldLandmarks, {
-                runtime: "mediapipe",
-                video: document.getElementById('input_video')
-            });
-
-            // 2. Mapeamento Robusto (Aceita mixamorig: e mixamorig_)
-            rigBody(riggedPose);
-
-            // 3. Lógica de Gameplay
-            updateGameplayLogic(results.poseLandmarks);
-        }
-
-        function rigBody(poseData) {
-            // Função auxiliar para encontrar ossos com nomes variados
-            const findBone = (names) => {
-                for (let name of names) {
-                    const bone = model.getObjectByName(name);
-                    if (bone) return bone;
-                }
-                return null;
-            };
-
-            const mapBone = (partName, rotData) => {
-                if (!rotData) return;
+        function rigCharacter(poseData) {
+            // Tenta mapear ossos independente do prefixo (mixamorig ou padrão)
+            const mapBone = (part, rot) => {
+                if (!rot) return;
+                const bone = model.getObjectByName(`mixamorig:${part}`) || 
+                             model.getObjectByName(`mixamorig${part}`) || 
+                             model.getObjectByName(part);
                 
-                // Tenta todas as variações de nome comuns
-                const bone = findBone([
-                    `mixamorig:${partName}`, 
-                    `mixamorig${partName}`, 
-                    `mixamorig_${partName}`,
-                    partName
-                ]);
-
                 if (bone) {
-                    // Interpolação (Suavização)
-                    const targetQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(rotData.x, rotData.y, rotData.z));
-                    bone.quaternion.slerp(targetQ, 0.5); // Fator 0.5 de suavização
+                    // Suavização (Slerp)
+                    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rot.x, rot.y, rot.z));
+                    bone.quaternion.slerp(q, 0.5);
                 }
             };
 
-            // Mapeamento Completo
+            // Mapeamento Full Body
             mapBone("Hips", poseData.Hips);
             mapBone("Spine", poseData.Spine);
             mapBone("Spine1", poseData.Spine1);
@@ -447,70 +499,7 @@
             mapBone("RightFoot", poseData.RightFoot);
         }
 
-        // --- LÓGICA DE PONTUAÇÃO E FÍSICA ---
-        function updateGameplayLogic(landmarks) {
-            if (!landmarks) return;
-
-            // Modo CORRIDA
-            if (GAME_MODE === 'run') {
-                const shoulderY = (landmarks[11].y + landmarks[12].y) / 2;
-                const delta = Math.abs(shoulderY - lastShoulderY);
-                lastShoulderY = shoulderY;
-
-                // Se houver oscilação vertical (corrida)
-                if (delta > 0.003) {
-                    speed = Math.min(speed + 1, 100);
-                } else {
-                    speed *= 0.95; // Desacelera
-                }
-            }
-
-            // Modo DANÇA
-            else if (GAME_MODE === 'dance') {
-                // Calcula movimento dos pulsos
-                // (Simplificado para fins de demo: velocidade constante se detectado)
-                speed = 60; 
-            }
-
-            // Modo RACE (Grand Prix)
-            else if (GAME_MODE === 'race') {
-                speed = 80; // Velocidade fixa
-                // Inclinação da cabeça controla X
-                const noseX = landmarks[0].x; // 0 a 1
-                const targetX = (0.5 - noseX) * 5; // Inverte e amplifica
-                
-                // Move o modelo suavemente
-                model.position.x += (targetX - model.position.x) * 0.1;
-                // Inclina o modelo para efeito visual
-                model.rotation.z = (model.position.x * -0.2);
-            }
-
-            // Atualiza UI
-            const energyBar = document.getElementById('energy-fill');
-            if (energyBar) energyBar.style.height = `${speed}%`;
-
-            if (speed > 5) {
-                // Move o chão (efeito de velocidade)
-                if (floorMesh && floorMesh.material.map) {
-                    floorMesh.material.map.offset.y -= (speed * 0.0005);
-                }
-                // Ganha pontos
-                score += Math.floor(speed / 10);
-                document.getElementById('ui-score').innerText = score;
-            }
-        }
-
-        // --- LOOP DE RENDERIZAÇÃO ---
-        function animate() {
-            requestAnimationFrame(animate);
-            const delta = clock.getDelta();
-
-            if (renderer && scene && camera) {
-                renderer.render(scene, camera);
-            }
-        }
-
-        // Ajuste de Tela
+        // --- AJUSTES FINAIS ---
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
