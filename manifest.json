@@ -1,12 +1,10 @@
 {
-  "name": "thIAguinho Arcade Kinet",
+  "name": "thIAguinho Arcade",
   "short_name": "thIAguinho",
-  "description": "Jogo de Movimento com IA thIAguinho",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#111111",
   "theme_color": "#c92a2a",
-  "orientation": "portrait",
   "icons": [
     {
       "src": "./assets/mascote_perfil.jpg",
