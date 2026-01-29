@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ThIAguinho Wii: Ultimate Kart (177 Edition)</title>
+    <title>ThIAguinho Wii: Console OS</title>
     
     <!-- Bibliotecas Essenciais -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
@@ -19,15 +19,23 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&family=Russo+One&family=Roboto:wght@300;400;700&display=swap');
 
-        :root { --wii-gray: #ececec; --wii-blue: #58b4e8; }
-
-        body { 
-            background-color: var(--wii-gray); margin: 0; overflow: hidden; 
-            font-family: 'Roboto', sans-serif; user-select: none; 
-            background: radial-gradient(circle at center, #ffffff 0%, #e0e0e0 100%);
-            touch-action: none;
+        /* WII AESTHETICS */
+        :root {
+            --wii-gray: #ececec;
+            --wii-shadow: rgba(0,0,0,0.15);
+            --wii-blue: #58b4e8;
         }
 
+        body { 
+            background-color: var(--wii-gray); 
+            margin: 0; overflow: hidden; 
+            font-family: 'Roboto', sans-serif; 
+            user-select: none; 
+            background: radial-gradient(circle at center, #ffffff 0%, #e0e0e0 100%);
+            touch-action: none; /* Importante para celular */
+        }
+
+        /* Scanline e Câmera */
         .crt-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%);
@@ -43,24 +51,33 @@
 
         #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
 
-        #loading { 
-            background: black; z-index: 100; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            display: flex; align-items: center; justify-content: center; flex-direction: column;
-            color: var(--wii-blue); font-family: 'Russo One'; font-size: 1.5rem; 
+        /* WII MENU GRID */
+        .wii-container {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; width: 100vw; position: relative; z-index: 20;
         }
 
-        /* Interface Wii */
-        .wii-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; width: 100vw; position: relative; z-index: 20; }
-        .channel-grid { display: grid; gap: 15px; width: 90%; max-width: 800px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-        .channel { background: white; aspect-ratio: 16/9; border-radius: 10px; border: 4px solid #ddd; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); }
-        .channel:hover { border-color: var(--wii-blue); transform: scale(1.05); }
-        .channel-icon { font-size: 3rem; }
+        .channel-grid {
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px; width: 90%; max-width: 800px;
+        }
 
+        .channel {
+            background: white; aspect-ratio: 16/9; border-radius: 10px; border: 4px solid #ddd;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.2s; box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+        }
+        .channel:hover { border-color: var(--wii-blue); transform: scale(1.05); }
+        .channel-icon { font-size: 3rem; margin-bottom: 5px; }
+
+        /* LOADING */
+        #loading { background: black; z-index: 100; position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; color: var(--wii-blue); font-family: 'Russo One'; font-size: 1.5rem; }
+        
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
-
     <video id="webcam" autoplay playsinline muted></video>
     <div class="crt-overlay"></div>
     <canvas id="game-canvas"></canvas>
@@ -70,31 +87,33 @@
         <p style="margin-top: 20px;" id="loading-text">INICIANDO SISTEMA...</p>
     </div>
 
-    <!-- MENU -->
+    <!-- WII MENU -->
     <div id="menu-screen" class="wii-container hidden">
         <div style="width: 90%; display: flex; justify-content: space-between; margin-bottom: 20px; color: #888;">
-            <span style="font-weight: bold;">thIAguinho Wii</span>
+            <span style="font-weight: bold;">thIAguinho Wii OS</span>
             <span id="clock" style="background: white; padding: 5px 15px; border-radius: 15px;">12:00</span>
         </div>
         <div id="channel-grid" class="channel-grid"></div>
         <div style="margin-top: 20px; color: #aaa; font-size: 0.8rem;">REDE: <span id="net-status" style="color:red">OFFLINE</span></div>
     </div>
 
-    <!-- HUD JOGO -->
+    <!-- HUD E UI -->
     <div id="game-ui" class="hidden">
+        <div style="position: fixed; top: 20px; left: 20px; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 15px; color: white; font-family: 'Russo One'; z-index: 50;">
+            SCORE: <span id="hud-score" style="color: yellow;">0</span>
+        </div>
         <div id="game-msg" style="position: fixed; top: 30%; width: 100%; text-align: center; font-family: 'Russo One'; font-size: 50px; color: yellow; text-shadow: 2px 2px 0 #000; z-index: 60; opacity: 0; transition: 0.3s; pointer-events: none;"></div>
-        <button onclick="window.System.home()" style="position: fixed; top: 20px; right: 20px; background: white; border:none; width:50px; height:50px; border-radius:50%; font-size:24px; cursor:pointer; z-index:100;">🏠</button>
+        <button onclick="window.System.home()" style="position: fixed; top: 20px; right: 20px; background: white; border:none; width:50px; height:50px; border-radius:50%; font-size:24px; cursor:pointer; z-index:100; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">🏠</button>
     </div>
 
     <!-- GAME OVER -->
     <div id="screen-over" class="wii-container hidden" style="background: rgba(0,0,0,0.9); color: white;">
         <h1 style="font-family: 'Russo One'; font-size: 4rem;">FIM</h1>
-        <h2 style="font-family: 'Chakra Petch';">POSIÇÃO FINAL: <span id="final-rank" style="color: yellow;">1º</span></h2>
-        <button onclick="window.System.home()" style="margin-top: 30px; padding: 10px 30px; border-radius: 20px; font-weight: bold; cursor: pointer;">VOLTAR</button>
+        <h2 style="font-family: 'Chakra Petch';">RESULTADO: <span id="final-score" style="color: yellow;">1º</span></h2>
+        <button onclick="window.System.home()" style="margin-top: 30px; padding: 10px 30px; border-radius: 20px; font-weight: bold; cursor: pointer; background: white;">VOLTAR AO MENU</button>
     </div>
 
     <script>
-        // --- 1. FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyB0ThqhfK6xc8P1D4WCkavhdXbb7zIaQJk",
             authDomain: "thiaguinhowii.firebaseapp.com",
@@ -108,593 +127,17 @@
             if (typeof firebase !== 'undefined') {
                 firebase.initializeApp(firebaseConfig);
                 window.DB = firebase.database();
+                console.log("🔥 Firebase OK");
                 document.getElementById('net-status').innerText = "ONLINE 🟢";
                 document.getElementById('net-status').style.color = "green";
             }
-        } catch (e) { console.error(e); }
-
-        // --- 2. CORE SYSTEM (Graphics & Audio) ---
-        window.Gfx = {
-            shake: 0,
-            updateShake: (ctx) => {
-                if(window.Gfx.shake > 0) {
-                    ctx.translate((Math.random()-0.5)*window.Gfx.shake, (Math.random()-0.5)*window.Gfx.shake);
-                    window.Gfx.shake *= 0.9;
-                }
-            },
-            shakeScreen: (i) => { window.Gfx.shake = i; },
-            map: (pt, w, h) => ({ x: (1 - (pt.x / 640)) * w, y: (pt.y / 480) * h })
-        };
-
-        window.Sfx = {
-            ctx: null,
-            init: () => { 
-                window.AudioContext = window.AudioContext || window.webkitAudioContext; 
-                if (!window.Sfx.ctx) window.Sfx.ctx = new AudioContext(); 
-                if (window.Sfx.ctx.state === 'suspended') window.Sfx.ctx.resume();
-            },
-            play: (f, t, d, v=0.1) => {
-                if(!window.Sfx.ctx) return;
-                try {
-                    const o = window.Sfx.ctx.createOscillator(); const g = window.Sfx.ctx.createGain();
-                    o.type=t; o.frequency.value=f; 
-                    g.gain.setValueAtTime(v, window.Sfx.ctx.currentTime);
-                    g.gain.exponentialRampToValueAtTime(0.001, window.Sfx.ctx.currentTime+d);
-                    o.connect(g); g.connect(window.Sfx.ctx.destination); 
-                    o.start(); o.stop(window.Sfx.ctx.currentTime+d);
-                } catch(e){}
-            },
-            click: () => window.Sfx.play(800, 'square', 0.1),
-            crash: () => window.Sfx.play(100, 'sawtooth', 0.4),
-            skid: () => window.Sfx.play(150, 'square', 0.2)
-        };
-
-        window.System = {
-            video: null, canvas: null, detector: null, games: [], activeGame: null, loopId: null, playerId: null,
-            
-            init: async () => {
-                let savedId = localStorage.getItem('wii_pid');
-                if(!savedId) { savedId = 'P' + Math.floor(Math.random()*9999); localStorage.setItem('wii_pid', savedId); }
-                window.System.playerId = savedId;
-
-                window.System.canvas = document.getElementById('game-canvas');
-                window.System.resize();
-                window.addEventListener('resize', window.System.resize);
-
-                try {
-                    document.getElementById('loading-text').innerText = "LIGANDO CÂMERA...";
-                    window.System.video = document.getElementById('webcam');
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, frameRate: { ideal: 30 } } });
-                    window.System.video.srcObject = stream;
-                    await new Promise(r => window.System.video.onloadedmetadata = r);
-                    window.System.video.play();
-
-                    if(typeof poseDetection !== 'undefined') {
-                         document.getElementById('loading-text').innerText = "CARREGANDO IA...";
-                         window.System.detector = await poseDetection.createDetector(
-                             poseDetection.SupportedModels.MoveNet, 
-                             { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
-                         );
-                    }
-                } catch(e) { console.error(e); }
-
-                document.getElementById('loading').classList.add('hidden');
-                window.System.menu();
-                
-                const unlock = () => { window.Sfx.init(); document.body.removeEventListener('click', unlock); document.body.removeEventListener('touchstart', unlock); };
-                document.body.addEventListener('click', unlock);
-                document.body.addEventListener('touchstart', unlock);
-            },
-
-            registerGame: (id, title, icon, logic, opts) => {
-                if(window.System.games.find(g=>g.id===id)) return;
-                window.System.games.push({id, title, icon, logic, opts});
-                const div = document.createElement('div');
-                div.className = 'channel';
-                div.innerHTML = `<div class="channel-icon">${icon}</div><div>${title}</div>`;
-                div.onclick = () => window.System.loadGame(id);
-                document.getElementById('channel-grid').appendChild(div);
-            },
-
-            menu: () => {
-                window.System.stopGame();
-                document.getElementById('menu-screen').classList.remove('hidden');
-                document.getElementById('game-ui').classList.add('hidden');
-                document.getElementById('screen-over').classList.add('hidden');
-                const ctx = window.System.canvas.getContext('2d');
-                ctx.fillStyle = "#ececec"; ctx.fillRect(0,0,window.System.canvas.width, window.System.canvas.height);
-            },
-
-            loadGame: (id) => {
-                const g = window.System.games.find(x=>x.id===id);
-                if(!g) return;
-                window.System.activeGame = g;
-                document.getElementById('menu-screen').classList.add('hidden');
-                document.getElementById('game-ui').classList.remove('hidden');
-                if(window.System.video) document.getElementById('webcam').style.opacity = g.opts.camOpacity || 0.3;
-                if(g.logic.init) g.logic.init();
-                window.System.loop();
-            },
-
-            loop: async () => {
-                if(!window.System.activeGame) return;
-                const ctx = window.System.canvas.getContext('2d');
-                const w = window.System.canvas.width;
-                const h = window.System.canvas.height;
-
-                let pose = null;
-                if(window.System.detector && window.System.video && window.System.video.readyState === 4) {
-                    try {
-                        const p = await window.System.detector.estimatePoses(window.System.video, {flipHorizontal: false});
-                        if(p.length > 0) pose = p[0];
-                    } catch(e){}
-                }
-
-                ctx.save();
-                window.Gfx.updateShake(ctx);
-                const s = window.System.activeGame.logic.update(ctx, w, h, pose);
-                ctx.restore();
-                window.System.loopId = requestAnimationFrame(window.System.loop);
-            },
-
-            stopGame: () => {
-                if(window.System.activeGame && window.System.activeGame.logic.cleanup) window.System.activeGame.logic.cleanup();
-                window.System.activeGame = null;
-                if(window.System.loopId) cancelAnimationFrame(window.System.loopId);
-            },
-
-            home: () => { window.Sfx.click(); window.System.menu(); },
-            gameOver: (rank) => {
-                window.System.stopGame(); window.Sfx.crash();
-                document.getElementById('final-rank').innerText = rank + "º";
-                document.getElementById('game-ui').classList.add('hidden');
-                document.getElementById('screen-over').classList.remove('hidden');
-            },
-            resize: () => {
-                if(window.System.canvas) {
-                    window.System.canvas.width = window.innerWidth;
-                    window.System.canvas.height = window.innerHeight;
-                }
-            },
-            msg: (t) => {
-                const el = document.getElementById('game-msg');
-                el.innerText = t; el.style.opacity = 1; setTimeout(()=>el.style.opacity=0, 2000);
-            }
-        };
-
-        // --- 3. HYBRID KART LOGIC (VISUALS FROM ORIGINAL + PHYSICS/NET FROM FIX) ---
-        (function() {
-            const CHARACTERS = [
-                { id: 0, name: 'OTTO', color: '#e74c3c' }, // Vermelho
-                { id: 1, name: 'SPEED', color: '#f1c40f' }, // Amarelo
-                { id: 2, name: 'TANK', color: '#3498db' }   // Azul
-            ];
-
-            const TRACKS = [
-                { id: 0, name: 'GP CIRCUITO', theme: 'grass', sky: 0, curv: 1.0 },
-                { id: 1, name: 'DESERTO', theme: 'sand', sky: 1, curv: 0.8 },
-                { id: 2, name: 'NEVE', theme: 'snow', sky: 2, curv: 1.2 }
-            ];
-
-            // FÍSICA RÁPIDA (DO FIX) + CONSTANTES VISUAIS (DO ORIGINAL)
-            const CONF = { 
-                MAX_SPEED: 460, // Velocidade alta do fix
-                ACCEL: 0.1, 
-                FRICTION: 0.97, 
-                SEGMENT_LENGTH: 200, // Tamanho do segmento visual
-                RUMBLE_LENGTH: 3,
-                DRAW_DISTANCE: 60    // Quantos segmentos desenhar
-            };
-
-            let segments = [], nitroBtn = null, trackLen = 0;
-            
-            const Logic = {
-                state: 'MODE', roomId: 'sala_01', 
-                isOnline: false, isReady: false, 
-                charId: 0, trackId: 0,
-                
-                speed: 0, pos: 0, x: 0, steer: 0, nitro: 100, turbo: false,
-                lap: 1, maxLaps: 3, rank: 1, score: 0,
-                
-                rivals: [], dbRef: null, lastSync: 0,
-                virtualWheel: { x:0, y:0, r:0, op:0 },
-                visualTilt: 0, bounce: 0, skyColor: 0,
-
-                init: function() {
-                    this.state = 'MODE'; this.resetPhysics();
-                    this.setupUI();
-                    window.System.msg("SELECIONE");
-                },
-
-                resetPhysics: function() {
-                    this.speed=0; this.pos=0; this.x=0; this.lap=1; this.nitro=100;
-                    this.virtualWheel={x:0,y:0,r:0,op:0};
-                },
-
-                cleanup: function() {
-                    if(this.dbRef) this.dbRef.child('players').off();
-                    if(nitroBtn) nitroBtn.remove();
-                    window.System.canvas.onclick = null;
-                },
-
-                setupUI: function() {
-                    const old = document.getElementById('nitro-btn'); if(old) old.remove();
-                    nitroBtn = document.createElement('div');
-                    nitroBtn.id = 'nitro-btn'; nitroBtn.innerHTML = "NITRO";
-                    Object.assign(nitroBtn.style, {
-                        position: 'absolute', top: '40%', right: '20px', width: '80px', height: '80px',
-                        borderRadius: '50%', background: 'radial-gradient(#ffaa00, #cc5500)', border: '4px solid #fff',
-                        color: '#fff', display: 'none', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', zIndex: '100', boxShadow: '0 0 15px orange'
-                    });
-                    const hit = (e) => { e.preventDefault(); e.stopPropagation(); if(this.state==='RACE' && this.nitro>10) { this.turbo=!this.turbo; nitroBtn.style.transform=this.turbo?'scale(0.9)':'scale(1)'; }};
-                    nitroBtn.addEventListener('touchstart', hit); nitroBtn.addEventListener('mousedown', hit);
-                    document.getElementById('game-ui').appendChild(nitroBtn);
-
-                    window.System.canvas.onclick = (e) => {
-                        const h = window.System.canvas.height; const y = e.clientY;
-                        if(this.state === 'MODE') {
-                            if(y < h/2) this.setMode(false); else this.setMode(true);
-                        } else if(this.state === 'LOBBY') {
-                            if(y > h*0.7) this.toggleReady();
-                            else if(y < h*0.3) this.charId = (this.charId+1)%CHARACTERS.length;
-                            else this.trackId = (this.trackId+1)%TRACKS.length;
-                        }
-                    };
-                },
-
-                setMode: function(online) {
-                    this.isOnline = online;
-                    if(online && window.DB) {
-                        this.dbRef = window.DB.ref('rooms/' + this.roomId);
-                        const pRef = this.dbRef.child('players/' + window.System.playerId);
-                        pRef.set({ name: 'P1', charId: 0, ready: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-                        pRef.onDisconnect().remove();
-
-                        this.dbRef.child('players').on('value', sn => {
-                            const val = sn.val(); if(!val) return;
-                            const now = Date.now();
-                            this.rivals = Object.keys(val)
-                                .filter(k => k !== window.System.playerId && (now - val[k].lastSeen < 15000))
-                                .map(k => ({ id: k, ...val[k], isRemote: true, speed: 0, x: 0 }));
-                            this.checkStart(this.rivals.length + 1);
-                        });
-                        this.state = 'LOBBY'; window.System.msg("CONECTANDO...");
-                    } else {
-                        this.rivals = [{pos:500, lap:1, x:-0.4, speed:0, charId:1, name:'CPU', aggro:0.04}, {pos:300, lap:1, x:0.4, speed:0, charId:2, name:'CPU2', aggro:0.035}];
-                        this.state = 'LOBBY'; window.System.msg("OFFLINE");
-                    }
-                },
-
-                checkStart: function(total) {
-                    if(this.state !== 'WAITING') return;
-                    let ready = (this.isReady ? 1 : 0) + this.rivals.filter(r=>r.ready).length;
-                    if(total > 1 && ready === total) this.startRace();
-                },
-
-                toggleReady: function() {
-                    this.isReady = !this.isReady;
-                    if(this.isReady && !this.isOnline) this.startRace();
-                    else if(this.isReady) { this.state='WAITING'; window.System.msg("AGUARDANDO..."); }
-                    else this.state='LOBBY';
-                    this.sync();
-                },
-
-                sync: function() {
-                    if(!this.isOnline || !this.dbRef) return;
-                    this.dbRef.child('players/' + window.System.playerId).update({
-                        charId: this.charId, trackId: this.trackId, ready: this.isReady,
-                        pos: Math.floor(this.pos), x: this.x, lap: this.lap,
-                        lastSeen: firebase.database.ServerValue.TIMESTAMP
-                    });
-                },
-
-                // --- TRACK BUILDER (COMPLEXO DO ORIGINAL) ---
-                startRace: function() {
-                    this.state = 'RACE';
-                    this.buildTrack();
-                    nitroBtn.style.display = 'flex';
-                    window.System.msg("VAI!!!");
-                },
-
-                getSegment: function(index) {
-                    return segments[((Math.floor(index) % segments.length) + segments.length) % segments.length] || {curve:0, y:0};
-                },
-
-                buildTrack: function() {
-                    segments = [];
-                    const trk = TRACKS[this.trackId];
-                    this.skyColor = trk.sky;
-                    const mult = trk.curv;
-                    
-                    const add = (enter, curve, y) => {
-                        for(let i = 0; i < enter; i++) {
-                            const isDark = Math.floor(segments.length / CONF.RUMBLE_LENGTH) % 2;
-                            segments.push({ curve: curve * mult, y: y, color: isDark ? 'dark' : 'light', theme: trk.theme });
-                        }
-                    };
-                    
-                    // Layout Pista (Hills & Curves)
-                    add(50, 0, 0); 
-                    add(40, 1.5, 20); // Subida Curva
-                    add(40, -1.5, -20); // Descida Curva
-                    add(50, 0, 0);
-                    add(30, 2.5, 0); 
-                    add(30, -2.5, 0);
-                    add(100, 0, 0);
-
-                    trackLen = segments.length * CONF.SEGMENT_LENGTH;
-                },
-
-                // --- MAIN LOOP ---
-                update: function(ctx, w, h, pose) {
-                    if(this.state === 'MODE') return this.drawBg(ctx, w, h, "ESCOLHA MODO", "OFFLINE (CIMA)", "ONLINE (BAIXO)");
-                    if(this.state === 'LOBBY' || this.state === 'WAITING') {
-                        this.drawBg(ctx, w, h, this.state==='WAITING'?"AGUARDANDO...":"LOBBY", `CHAR: ${CHARACTERS[this.charId].name}`, this.isReady?"CANCELAR":"PRONTO!");
-                        const t = TRACKS[this.trackId];
-                        ctx.font="20px Arial"; ctx.fillText(`PISTA: ${t.name}`, w/2, h*0.5);
-                        ctx.fillText(`Jogadores: ${this.rivals.length+1}`, 20, h-20);
-                        return;
-                    }
-
-                    // --- INPUT (Mãos ou Toque) ---
-                    let pL = null, pR = null;
-                    if(pose && pose.keypoints) {
-                        const lw = pose.keypoints.find(k=>k.name==='left_wrist');
-                        const rw = pose.keypoints.find(k=>k.name==='right_wrist');
-                        if(lw && lw.score > 0.3) pL = window.Gfx.map(lw, w, h);
-                        if(rw && rw.score > 0.3) pR = window.Gfx.map(rw, w, h);
-                    }
-
-                    if(pL && pR) {
-                        this.virtualWheel = { x:(pL.x+pR.x)/2, y:(pL.y+pR.y)/2, r:50, op:1 };
-                        this.steer = (Math.atan2(pR.y-pL.y, pR.x-pL.x)) * 2.3; // Sensibilidade
-                        if(this.speed < CONF.MAX_SPEED) this.speed += (CONF.MAX_SPEED - this.speed) * CONF.ACCEL;
-                    } else {
-                        this.virtualWheel.op = 0.3; this.virtualWheel.x=w/2; this.virtualWheel.y=h*0.8;
-                        this.speed *= CONF.FRICTION;
-                        if(this.turbo) this.speed += (CONF.MAX_SPEED - this.speed) * CONF.ACCEL;
-                    }
-
-                    // Turbo & Física
-                    if(this.turbo && this.nitro > 0) { this.speed *= 1.05; this.nitro -= 0.5; }
-                    else { this.nitro = Math.min(100, this.nitro+0.2); this.turbo=false; }
-
-                    const segIdx = Math.floor(this.pos / CONF.SEGMENT_LENGTH);
-                    const seg = this.getSegment(segIdx);
-                    const pct = this.speed / CONF.MAX_SPEED;
-                    
-                    this.x += (this.steer * 0.15 * pct) - (seg.curve * pct * 0.25);
-                    if(Math.abs(this.x) > 2.2) { this.speed *= 0.9; this.x = Math.max(-2.5, Math.min(2.5, this.x)); window.Gfx.shakeScreen(2); }
-
-                    this.pos += this.speed;
-                    if(this.pos >= trackLen) { this.pos -= trackLen; this.lap++; }
-                    if(this.lap > this.maxLaps) { this.state='END'; window.System.gameOver(this.rank); }
-
-                    // Sync & Ranking
-                    if(this.isOnline && Date.now()-this.lastSync>100) { this.lastSync=Date.now(); this.sync(); }
-                    
-                    let myDist = (this.lap * trackLen) + this.pos;
-                    let rank = 1;
-                    this.rivals.forEach(r => {
-                        if(!r.isRemote) { // IA Local
-                            let tS = CONF.MAX_SPEED * 0.9;
-                            r.speed += (tS - r.speed)*0.05; r.pos += r.speed;
-                            if(r.pos >= trackLen) { r.pos -= trackLen; r.lap++; }
-                            const rSeg = this.getSegment(Math.floor(r.pos/CONF.SEGMENT_LENGTH));
-                            r.x += (-(rSeg.curve * 0.6) - r.x) * 0.05; // IA Curvas
-                        }
-                        let rDist = (r.lap * trackLen) + r.pos;
-                        if(rDist > myDist) rank++;
-                    });
-                    this.rank = rank;
-
-                    this.visualTilt += (this.steer * 15 - this.visualTilt) * 0.1;
-                    this.renderWorld(ctx, w, h);
-                },
-
-                // --- RENDERIZADOR RICO (VISUAL ORIGINAL) ---
-                renderWorld: function(ctx, w, h) {
-                    const cx = w / 2;
-                    const horizon = h * 0.40; // Horizonte mais baixo (estilo retro)
-                    const segIdx = Math.floor(this.pos / CONF.SEGMENT_LENGTH);
-                    const baseSeg = this.getSegment(segIdx);
-
-                    // Céu Degradê
-                    const skyGrads = [['#3388ff', '#88ccff'], ['#e67e22', '#f1c40f'], ['#0984e3', '#74b9ff']];
-                    const sky = skyGrads[this.skyColor] || skyGrads[0];
-                    const g = ctx.createLinearGradient(0, 0, 0, horizon);
-                    g.addColorStop(0, sky[0]); g.addColorStop(1, sky[1]);
-                    ctx.fillStyle = g; ctx.fillRect(0, 0, w, horizon);
-
-                    // Chão Temático
-                    const themes = { 'grass': '#448833', 'sand': '#e67e22', 'snow': '#dfe6e9' };
-                    ctx.fillStyle = themes[baseSeg.theme] || '#448833'; 
-                    ctx.fillRect(0, horizon, w, h-horizon);
-
-                    // Loop de Renderização de Segmentos (Complexo)
-                    let dx = 0; let dy = 0;
-                    let camX = this.x * (w * 0.4);
-                    let camY = baseSeg.y + 1500; // Altura câmera
-
-                    let maxDraw = CONF.DRAW_DISTANCE;
-                    let segmentCoords = []; // Para desenhar sprites depois
-
-                    for(let n = 0; n < maxDraw; n++) {
-                        const idx = (segIdx + n) % segments.length;
-                        const seg = this.getSegment(segIdx + n);
-                        const loop = Math.floor((segIdx + n) / segments.length);
-                        
-                        // Curva Acumulada
-                        dx += seg.curve;
-                        dy += (seg.y - baseSeg.y); // Diferença altura
-
-                        let z1 = n * CONF.SEGMENT_LENGTH;
-                        let z2 = (n+1) * CONF.SEGMENT_LENGTH;
-                        let scale1 = 250 / (250 + z1); // FOV
-                        let scale2 = 250 / (250 + z2);
-
-                        let x1 = cx - (camX * scale1) - (dx * z1/1000 * w * scale1);
-                        let x2 = cx - (camX * scale2) - ((dx + seg.curve) * z2/1000 * w * scale2);
-                        
-                        let y1 = horizon + ((1500 - dy) * scale1 * 0.1); // Y com altura
-                        let y2 = horizon + ((1500 - (dy + (seg.y-segments[(idx-1+segments.length)%segments.length].y))) * scale2 * 0.1);
-
-                        let w1 = w * 2.5 * scale1;
-                        let w2 = w * 2.5 * scale2;
-
-                        // Salva coord para Sprites
-                        segmentCoords.push({ index: idx, x: x1, y: y1, scale: scale1 });
-
-                        // Desenha Segmento (Cores)
-                        const colorSet = {
-                            'grass': { light: '#55aa44', dark: '#448833' },
-                            'sand': { light: '#f1c40f', dark: '#e67e22' },
-                            'snow': { light: '#ffffff', dark: '#b2bec3' }
-                        }[seg.theme];
-                        
-                        let roadCol = seg.color === 'dark' ? '#666' : '#636363';
-                        let grassCol = seg.color === 'dark' ? colorSet.dark : colorSet.light;
-                        let rumbleCol = seg.color === 'dark' ? '#c0392b' : '#fff';
-
-                        // Grama lateral (Overlap para evitar linhas)
-                        ctx.fillStyle = grassCol;
-                        ctx.fillRect(0, Math.floor(y2), w, Math.ceil(y1-y2+1));
-
-                        // Estrada
-                        ctx.fillStyle = roadCol;
-                        ctx.beginPath();
-                        ctx.moveTo(x1-w1, y1); ctx.lineTo(x1+w1, y1);
-                        ctx.lineTo(x2+w2, y2); ctx.lineTo(x2-w2, y2);
-                        ctx.fill();
-
-                        // Zebra
-                        ctx.fillStyle = rumbleCol;
-                        ctx.fillRect(x1-w1*1.1, y1, w1*0.1, Math.ceil(y2-y1+1));
-                        ctx.fillRect(x1+w1, y1, w1*0.1, Math.ceil(y2-y1+1));
-                    }
-
-                    // --- DESENHAR RIVAIS (Z-SORTED) ---
-                    // Percorre de trás para frente para sobreposição correta
-                    for(let n = maxDraw-1; n > 0; n--) {
-                        const coord = segmentCoords[n];
-                        if(!coord) continue;
-
-                        this.rivals.forEach(r => {
-                            // Calcula distância relativa
-                            let rDist = r.pos - this.pos;
-                            if(rDist < -trackLen/2) rDist += trackLen;
-                            if(rDist > trackLen/2) rDist -= trackLen;
-                            
-                            // Se rival está neste segmento
-                            let rSegIdx = Math.floor(rDist / CONF.SEGMENT_LENGTH);
-                            if(rSegIdx === n) {
-                                // Desenha Sprite do Rival
-                                let rx = coord.x + (r.x * w * 2.5 * coord.scale);
-                                let ry = coord.y;
-                                let rScale = coord.scale * w * 0.0055;
-                                
-                                // Simula inclinação da curva na pista
-                                let rCurve = segments[coord.index].curve * 20; 
-                                
-                                this.drawKartSprite(ctx, rx, ry, rScale, r.x * 0.5, rCurve, 0, CHARACTERS[r.charId||0].color, true);
-                            }
-                        });
-                    }
-
-                    // PLAYER (Sprite Rico)
-                    const pCol = CHARACTERS[this.charId].color;
-                    this.drawKartSprite(ctx, cx, h*0.85 + this.bounce, w * 0.0055, this.steer, this.visualTilt, this.nitro, pCol, false);
-
-                    // HUD e Volante
-                    this.renderHUD(ctx, w, h);
-                },
-
-                // --- SPRITE VECTORIAL (O SEGREDO DO VISUAL) ---
-                drawKartSprite: function(ctx, x, y, scale, steer, tilt, nitro, color, isRival) {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(scale, scale);
-                    ctx.rotate(tilt * 0.02);
-
-                    // Sombra
-                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-                    ctx.beginPath(); ctx.ellipse(0, 35, 60, 15, 0, 0, Math.PI*2); ctx.fill();
-
-                    // Corpo
-                    const grad = ctx.createLinearGradient(-30, 0, 30, 0);
-                    grad.addColorStop(0, color); grad.addColorStop(0.5, '#fff'); grad.addColorStop(1, color);
-                    ctx.fillStyle = grad;
-                    ctx.beginPath(); ctx.moveTo(-25,-30); ctx.lineTo(25,-30); ctx.lineTo(40,10); ctx.lineTo(10,35); ctx.lineTo(-10,35); ctx.lineTo(-40,10); ctx.fill();
-
-                    // Escape/Turbo
-                    if (nitro > 0 || isRival) { 
-                        ctx.fillStyle = (nitro > 80 || isRival) ? '#00ffff' : '#ffaa00'; 
-                        if(!isRival || Math.random()>0.5) { // Rivais piscam turbo as vezes
-                            ctx.beginPath(); ctx.arc(-20,-30, 10+Math.random()*10, 0, Math.PI*2); ctx.arc(20,-30, 10+Math.random()*10, 0, Math.PI*2); ctx.fill();
-                        }
-                    }
-
-                    // Rodas
-                    const wheel = (wx, wy) => {
-                        ctx.save(); ctx.translate(wx, wy); ctx.rotate(steer * 0.8);
-                        ctx.fillStyle = '#111'; ctx.fillRect(-12, -15, 24, 30);
-                        ctx.fillStyle = '#666'; ctx.fillRect(-5, -5, 10, 10);
-                        ctx.restore();
-                    };
-                    wheel(-45, 15); wheel(45, 15); // Frente
-                    ctx.fillStyle='#111'; ctx.fillRect(-50,-25,20,30); ctx.fillRect(30,-25,20,30); // Trás
-
-                    // Capacete
-                    ctx.translate(0, -10); ctx.rotate(steer * 0.2);
-                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, -20, 18, 0, Math.PI*2); ctx.fill();
-                    // Visor
-                    ctx.fillStyle = '#333'; ctx.fillRect(-15, -25, 30, 8);
-                    
-                    if(isRival) {
-                         ctx.fillStyle = "#000"; ctx.font="bold 12px Arial"; ctx.textAlign="center"; ctx.fillText("P2", 0, -35);
-                    }
-
-                    ctx.restore();
-                },
-
-                renderHUD: function(ctx, w, h) {
-                    // Volante
-                    if(this.virtualWheel.op > 0) {
-                        const v = this.virtualWheel;
-                        ctx.save(); ctx.translate(v.x, v.y); ctx.globalAlpha = v.op; ctx.rotate(this.steer);
-                        ctx.lineWidth = 10; ctx.strokeStyle = "#333"; ctx.beginPath(); ctx.arc(0,0,50,0,Math.PI*2); ctx.stroke();
-                        ctx.lineWidth = 4; ctx.strokeStyle = "#00ffff"; ctx.beginPath(); ctx.arc(0,0,42,0,Math.PI*2); ctx.stroke();
-                        ctx.fillStyle = CHARACTERS[this.charId].color; ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill();
-                        ctx.fillStyle = "red"; ctx.fillRect(-5,-50,10,20);
-                        ctx.restore();
-                    }
-
-                    // Textos
-                    ctx.fillStyle = "white"; ctx.strokeStyle="black"; ctx.lineWidth=4;
-                    ctx.font = "bold 40px 'Russo One'";
-                    ctx.strokeText(`${this.rank}º / ${this.rivals.length+1}`, 20, 50); ctx.fillText(`${this.rank}º / ${this.rivals.length+1}`, 20, 50);
-                    ctx.font = "20px monospace"; ctx.fillText(`Volta ${this.lap}/${this.maxLaps}`, 20, 80);
-                    
-                    // Barra Nitro
-                    ctx.fillStyle="#333"; ctx.fillRect(w/2-100, 20, 200, 20);
-                    ctx.fillStyle=this.turbo?"cyan":"orange"; ctx.fillRect(w/2-98, 22, 196*(this.nitro/100), 16);
-                },
-
-                drawBg: function(ctx, w, h, t1, t2, t3) {
-                    ctx.fillStyle = "#2c3e50"; ctx.fillRect(0,0,w,h);
-                    ctx.fillStyle = "white"; ctx.textAlign = "center";
-                    ctx.font = "bold 40px 'Russo One'"; ctx.fillText(t1, w/2, h*0.2);
-                    if(t2) { ctx.fillStyle = "#e67e22"; ctx.fillRect(w/2-150, h*0.4-30, 300, 60); ctx.fillStyle="white"; ctx.font="25px Arial"; ctx.fillText(t2, w/2, h*0.4+10); }
-                    if(t3) { ctx.fillStyle = "#27ae60"; ctx.fillRect(w/2-150, h*0.6-30, 300, 60); ctx.fillStyle="white"; ctx.font="25px Arial"; ctx.fillText(t3, w/2, h*0.6+10); }
-                }
-            };
-
-            window.System.registerGame('kart', 'Ultimate Kart', '🏎️', Logic, { camOpacity: 0.2 });
-        })();
-
-        // Relógio
+        } catch (e) { console.error("Firebase Error:", e); }
+        
         setInterval(() => document.getElementById('clock').innerText = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), 1000);
-        window.onload = window.System.init;
     </script>
+
+    <script src="js/core.js"></script>
+    <script src="js/game_kart.js"></script>
+    <!-- Outros jogos podem ser adicionados aqui -->
 </body>
 </html>
