@@ -1,5 +1,5 @@
 // =============================================================================
-// KART DO OTTO – ULTIMATE V9 (FIX: RESOLUÇÃO DINÂMICA DA CÂMERA + MULTIPLAYER)
+// KART DO OTTO – ULTIMATE V10 (FUSÃO: CÂMERA FUNCIONAL + RIVAIS VISÍVEIS)
 // =============================================================================
 
 (function() {
@@ -9,8 +9,8 @@
     // -----------------------------------------------------------------
     const CHARACTERS = [
         { id: 0, name: 'OTTO', color: '#e74c3c', speedInfo: 1.0, turnInfo: 1.0 },
-        { id: 1, name: 'Thiago', color: '#f1c40f', speedInfo: 1.08, turnInfo: 0.85 },
-        { id: 2, name: 'Marcelo', color: '#3498db', speedInfo: 0.92, turnInfo: 1.15 }
+        { id: 1, name: 'SPEED', color: '#f1c40f', speedInfo: 1.08, turnInfo: 0.85 },
+        { id: 2, name: 'TANK', color: '#3498db', speedInfo: 0.92, turnInfo: 1.15 }
     ];
 
     const TRACKS = [
@@ -341,7 +341,7 @@
             if (!Number.isFinite(d.speed)) d.speed = 0;
             if (!Number.isFinite(d.pos)) d.pos = 0;
             
-            // --- DETECÇÃO DE MÃOS (CORREÇÃO DE RESOLUÇÃO V9) ---
+            // --- DETECÇÃO DE MÃOS (VOLTANDO PARA O ORIGINAL FUNCIONAL) ---
             let detected = 0;
             let pLeft = null, pRight = null;
             let nose = null;
@@ -351,34 +351,20 @@
                 const rw = pose.keypoints.find(k => k.name === 'right_wrist');
                 const n  = pose.keypoints.find(k => k.name === 'nose');
 
-                // CORREÇÃO CRÍTICA: Pega a resolução real da câmera
-                // Se o vídeo ainda não carregou, usa 640x480 como fallback
-                const vid = window.System.video;
-                const vW = (vid && vid.videoWidth > 0) ? vid.videoWidth : 640;
-                const vH = (vid && vid.videoHeight > 0) ? vid.videoHeight : 480;
-
+                // LÓGICA ORIGINAL DO ARQUIVO ANEXADO
+                // Assume que se > 1 é pixel e deve ser dividido por 640/480
                 const mapPoint = (pt) => {
                     let nx = pt.x;
                     let ny = pt.y;
-                    
-                    // Se as coordenadas são em pixels (ex: 1080), normaliza para 0..1
-                    if (nx > 1 || ny > 1) {
-                        nx = nx / vW;
-                        ny = ny / vH;
-                    }
-                    
-                    // Garante limites 0..1
-                    nx = Math.max(0, Math.min(1, nx));
-                    ny = Math.max(0, Math.min(1, ny));
-
-                    // Espelha horizontalmente (1 - nx) para ficar intuitivo
+                    if (nx > 1) nx = nx / 640; 
+                    if (ny > 1) ny = ny / 480;
                     return { x: (1 - nx) * w, y: ny * h };
                 };
 
-                // Limiar reduzido para 0.1 (ajuda em ambientes escuros)
-                if (lw && lw.score > 0.1) { pLeft = mapPoint(lw); detected++; }
-                if (rw && rw.score > 0.1) { pRight = mapPoint(rw); detected++; }
-                if (n && n.score > 0.1) { nose = mapPoint(n); }
+                // Limiar ajustado para 0.15 como no seu arquivo funcional
+                if (lw && lw.score > 0.15) { pLeft = mapPoint(lw); detected++; }
+                if (rw && rw.score > 0.15) { pRight = mapPoint(rw); detected++; }
+                if (n && n.score > 0.15) { nose = mapPoint(n); }
 
                 // TURBO GESTUAL
                 if (detected === 2 && nose) {
