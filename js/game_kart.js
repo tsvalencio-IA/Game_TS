@@ -1,5 +1,5 @@
 // =============================================================================
-// KART DO OTTO – ULTIMATE V7 (VOLANTE SEGUE AS MÃOS + BRILHO NO TURBO)
+// KART DO OTTO – ULTIMATE V8 (FIX: VISIBILIDADE DOS RIVAIS + COLISÃO)
 // =============================================================================
 
 (function() {
@@ -83,7 +83,7 @@
         visualTilt: 0, bounce: 0, skyColor: 0, 
         inputState: 0, gestureTimer: 0,
         
-        virtualWheel: { x:0, y:0, r:0, opacity:0, isHigh: false }, // Adicionado isHigh
+        virtualWheel: { x:0, y:0, r:0, opacity:0, isHigh: false },
         rivals: [], 
 
         init: function() { 
@@ -366,10 +366,7 @@
 
                 // TURBO GESTUAL
                 if (detected === 2 && nose) {
-                    // Verifica se as mãos estão acima do nariz (Y menor = mais alto)
                     const isHandsHigh = (pLeft.y < nose.y && pRight.y < nose.y);
-                    
-                    // Sinaliza para o renderizador que o volante está alto
                     d.virtualWheel.isHigh = isHandsHigh;
 
                     if (isHandsHigh) {
@@ -392,10 +389,8 @@
                 const rawAngle = Math.atan2(dy, dx);
                 d.targetSteer = (Math.abs(rawAngle) > 0.05) ? rawAngle * 2.5 : 0;
                 
-                // ATUALIZA POSIÇÃO DO VOLANTE PARA SEGUIR AS MÃOS
                 d.virtualWheel.x = (pLeft.x + pRight.x) / 2; 
                 d.virtualWheel.y = (pLeft.y + pRight.y) / 2;
-                
                 d.virtualWheel.r = Math.max(40, Math.hypot(dx, dy) / 2); 
                 d.virtualWheel.opacity = 1.0; 
             } else {
@@ -403,7 +398,6 @@
                 d.targetSteer = 0; 
                 d.virtualWheel.isHigh = false;
                 
-                // Volta para o centro se perder as mãos
                 d.virtualWheel.x += ((w / 2) - d.virtualWheel.x) * 0.1;
                 d.virtualWheel.y += ((h * 0.75) - d.virtualWheel.y) * 0.1;
                 d.virtualWheel.r += (60 - d.virtualWheel.r) * 0.1;
@@ -419,7 +413,7 @@
             else { d.nitro = Math.min(100, d.nitro + 0.1); }
             if(d.boostTimer > 0) { currentMax += 100; d.boostTimer--; }
 
-            const hasGas = (d.inputState > 0 || d.turboLock); // SÓ ACELERA SE TIVER MÃOS OU TURBO
+            const hasGas = (d.inputState > 0 || d.turboLock); 
             
             if (hasGas && d.state === 'RACE') {
                 d.speed += (currentMax - d.speed) * 0.075;
@@ -532,6 +526,7 @@
             let dx = 0; let camX = d.playerX * (w * 0.4);
             let segmentCoords = [];
 
+            // 1. DESENHA A ESTRADA (FUNDO P/ FRENTE)
             for(let n = 0; n < CONF.DRAW_DISTANCE; n++) {
                 const segIdx = currentSegIndex + n;
                 const seg = getSegment(segIdx);
@@ -567,17 +562,20 @@
                 ctx.fill();
             }
 
+            // 2. DESENHA OBJETOS E RIVAIS (TRAS P/ FRENTE)
             for(let n = CONF.DRAW_DISTANCE - 1; n >= 0; n--) {
                 const coord = segmentCoords[n]; 
                 if (!coord) continue;
                 const seg = getSegment(coord.index);
 
+                // --- CORREÇÃO: VISIBILIDADE DOS RIVAIS ---
                 d.rivals.forEach(r => {
                     let rRelPos = r.pos - d.pos; 
                     if(rRelPos < -trackLength/2) rRelPos += trackLength; 
                     if(rRelPos > trackLength/2) rRelPos -= trackLength;
 
-                    if (Math.abs(Math.floor(rRelPos / CONF.SEGMENT_LENGTH) - n) < 1.5 && n > 1) {
+                    // Tolerância aumentada para evitar que o carro "pisque"
+                    if (Math.abs(Math.floor(rRelPos / CONF.SEGMENT_LENGTH) - n) < 2.0 && n > 0) {
                         const rScale = coord.scale * w * 0.0055;
                         const rx = coord.x + (r.x * (w * 3) * coord.scale / 2);
                         this.drawKartSprite(ctx, rx, coord.y, rScale, 0, 0, r, r.color, true);
@@ -606,7 +604,10 @@
         },
 
         drawKartSprite: function(ctx, cx, y, carScale, steer, tilt, d, color, isRival) {
-            ctx.save(); ctx.translate(cx, y); ctx.scale(carScale, carScale);
+            // FIX CRÍTICO: Removido o save/restore duplo que causava invisibilidade
+            ctx.save(); 
+            ctx.translate(cx, y); 
+            ctx.scale(carScale, carScale);
             ctx.rotate(tilt * 0.02 + (d.driftState === 1 ? d.driftDir * 0.3 : 0));
             
             ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, 35, 60, 15, 0, 0, Math.PI*2); ctx.fill();
@@ -640,7 +641,10 @@
             } else {
                 ctx.fillStyle = 'red'; ctx.font='bold 12px Arial'; ctx.textAlign='center'; ctx.fillText('EU', 0, -32);
             }
-            ctx.restore(); ctx.restore(); 
+            ctx.restore(); 
+            
+            // FIX: Restore final correto (um save = um restore)
+            ctx.restore(); 
         },
 
         renderModeSelect: function(ctx, w, h) {
@@ -751,7 +755,6 @@
                     ctx.globalAlpha = vw.opacity; 
                     ctx.translate(vw.x, vw.y);
                     
-                    // BRILHO QUANDO LEVANTA O VOLANTE
                     if (vw.isHigh) {
                         ctx.shadowBlur = 25;
                         ctx.shadowColor = '#00ffff';
