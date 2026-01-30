@@ -1,5 +1,5 @@
 // =============================================================================
-// KART DO OTTO – ULTIMATE V7 (VOLANTE SEGUE AS MÃOS + BRILHO NO TURBO)
+// KART DO OTTO – ULTIMATE V14 (FIX CRÍTICO: ERRO DE RAIO NEGATIVO + CAM)
 // =============================================================================
 
 (function() {
@@ -83,7 +83,8 @@
         visualTilt: 0, bounce: 0, skyColor: 0, 
         inputState: 0, gestureTimer: 0,
         
-        virtualWheel: { x:0, y:0, r:0, opacity:0, isHigh: false }, // Adicionado isHigh
+        // FIX: Inicializa com r=60 para evitar o erro de raio negativo ao iniciar
+        virtualWheel: { x:0, y:0, r:60, opacity:0, isHigh: false },
         rivals: [], 
 
         init: function() { 
@@ -164,7 +165,8 @@
         resetPhysics: function() {
             this.speed = 0; this.pos = 0; this.playerX = 0; this.steer = 0;
             this.lap = 1; this.score = 0; this.driftState = 0; this.nitro = 100;
-            this.virtualWheel = { x:0, y:0, r:0, opacity:0, isHigh: false };
+            // FIX: Inicializa r=60
+            this.virtualWheel = { x:0, y:0, r:60, opacity:0, isHigh: false };
             particles = [];
         },
 
@@ -351,7 +353,7 @@
                 const rw = pose.keypoints.find(k => k.name === 'right_wrist');
                 const n  = pose.keypoints.find(k => k.name === 'nose');
 
-                // Normaliza coordenadas
+                // Lógica simples e robusta (sem detecção dinâmica que falha)
                 const mapPoint = (pt) => {
                     let nx = pt.x;
                     let ny = pt.y;
@@ -360,16 +362,14 @@
                     return { x: (1 - nx) * w, y: ny * h };
                 };
 
+                // Limiar 0.15 (robusto)
                 if (lw && lw.score > 0.15) { pLeft = mapPoint(lw); detected++; }
                 if (rw && rw.score > 0.15) { pRight = mapPoint(rw); detected++; }
                 if (n && n.score > 0.15) { nose = mapPoint(n); }
 
                 // TURBO GESTUAL
                 if (detected === 2 && nose) {
-                    // Verifica se as mãos estão acima do nariz (Y menor = mais alto)
                     const isHandsHigh = (pLeft.y < nose.y && pRight.y < nose.y);
-                    
-                    // Sinaliza para o renderizador que o volante está alto
                     d.virtualWheel.isHigh = isHandsHigh;
 
                     if (isHandsHigh) {
@@ -392,10 +392,8 @@
                 const rawAngle = Math.atan2(dy, dx);
                 d.targetSteer = (Math.abs(rawAngle) > 0.05) ? rawAngle * 2.5 : 0;
                 
-                // ATUALIZA POSIÇÃO DO VOLANTE PARA SEGUIR AS MÃOS
                 d.virtualWheel.x = (pLeft.x + pRight.x) / 2; 
                 d.virtualWheel.y = (pLeft.y + pRight.y) / 2;
-                
                 d.virtualWheel.r = Math.max(40, Math.hypot(dx, dy) / 2); 
                 d.virtualWheel.opacity = 1.0; 
             } else {
@@ -419,7 +417,7 @@
             else { d.nitro = Math.min(100, d.nitro + 0.1); }
             if(d.boostTimer > 0) { currentMax += 100; d.boostTimer--; }
 
-            const hasGas = (d.inputState > 0 || d.turboLock); // SÓ ACELERA SE TIVER MÃOS OU TURBO
+            const hasGas = (d.inputState > 0 || d.turboLock); 
             
             if (hasGas && d.state === 'RACE') {
                 d.speed += (currentMax - d.speed) * 0.075;
@@ -532,6 +530,7 @@
             let dx = 0; let camX = d.playerX * (w * 0.4);
             let segmentCoords = [];
 
+            // 1. DESENHA A ESTRADA (FUNDO P/ FRENTE)
             for(let n = 0; n < CONF.DRAW_DISTANCE; n++) {
                 const segIdx = currentSegIndex + n;
                 const seg = getSegment(segIdx);
@@ -567,6 +566,7 @@
                 ctx.fill();
             }
 
+            // 2. DESENHA OBJETOS E RIVAIS (TRAS P/ FRENTE)
             for(let n = CONF.DRAW_DISTANCE - 1; n >= 0; n--) {
                 const coord = segmentCoords[n]; 
                 if (!coord) continue;
@@ -577,7 +577,7 @@
                     if(rRelPos < -trackLength/2) rRelPos += trackLength; 
                     if(rRelPos > trackLength/2) rRelPos -= trackLength;
 
-                    if (Math.abs(Math.floor(rRelPos / CONF.SEGMENT_LENGTH) - n) < 1.5 && n > 1) {
+                    if (Math.abs(Math.floor(rRelPos / CONF.SEGMENT_LENGTH) - n) < 2.0 && n > 0) {
                         const rScale = coord.scale * w * 0.0055;
                         const rx = coord.x + (r.x * (w * 3) * coord.scale / 2);
                         this.drawKartSprite(ctx, rx, coord.y, rScale, 0, 0, r, r.color, true);
@@ -606,7 +606,9 @@
         },
 
         drawKartSprite: function(ctx, cx, y, carScale, steer, tilt, d, color, isRival) {
-            ctx.save(); ctx.translate(cx, y); ctx.scale(carScale, carScale);
+            ctx.save(); 
+            ctx.translate(cx, y); 
+            ctx.scale(carScale, carScale);
             ctx.rotate(tilt * 0.02 + (d.driftState === 1 ? d.driftDir * 0.3 : 0));
             
             ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, 35, 60, 15, 0, 0, Math.PI*2); ctx.fill();
@@ -640,7 +642,9 @@
             } else {
                 ctx.fillStyle = 'red'; ctx.font='bold 12px Arial'; ctx.textAlign='center'; ctx.fillText('EU', 0, -32);
             }
-            ctx.restore(); ctx.restore(); 
+            ctx.restore(); 
+            
+            ctx.restore(); 
         },
 
         renderModeSelect: function(ctx, w, h) {
@@ -751,7 +755,6 @@
                     ctx.globalAlpha = vw.opacity; 
                     ctx.translate(vw.x, vw.y);
                     
-                    // BRILHO QUANDO LEVANTA O VOLANTE
                     if (vw.isHigh) {
                         ctx.shadowBlur = 25;
                         ctx.shadowColor = '#00ffff';
@@ -759,10 +762,14 @@
                         ctx.shadowBlur = 0;
                     }
 
-                    ctx.lineWidth = 8; ctx.strokeStyle = '#222'; ctx.beginPath(); ctx.arc(0, 0, vw.r, 0, Math.PI * 2); ctx.stroke();
-                    ctx.lineWidth = 4; ctx.strokeStyle = '#00ffff'; ctx.beginPath(); ctx.arc(0, 0, vw.r - 8, 0, Math.PI * 2); ctx.stroke();
+                    // FIX CRÍTICO AQUI: Garantir que o raio nunca seja negativo
+                    const safeR = Math.max(0, vw.r);
+                    const safeInnerR = Math.max(0, vw.r - 8);
+
+                    ctx.lineWidth = 8; ctx.strokeStyle = '#222'; ctx.beginPath(); ctx.arc(0, 0, safeR, 0, Math.PI * 2); ctx.stroke();
+                    ctx.lineWidth = 4; ctx.strokeStyle = '#00ffff'; ctx.beginPath(); ctx.arc(0, 0, safeInnerR, 0, Math.PI * 2); ctx.stroke();
                     ctx.rotate(d.steer * 1.4); 
-                    ctx.fillStyle = '#ff3300'; ctx.beginPath(); ctx.fillRect(-4, -vw.r + 10, 8, 22);
+                    ctx.fillStyle = '#ff3300'; ctx.beginPath(); ctx.fillRect(-4, -safeR + 10, 8, 22);
                     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill(); 
                     ctx.restore();
                 }
