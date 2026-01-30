@@ -1,5 +1,5 @@
 // =============================================================================
-// KART DO OTTO – ULTIMATE V5 (COM COLISÃO ENTRE JOGADORES PvP)
+// KART DO OTTO – ULTIMATE V7 (VOLANTE SEGUE AS MÃOS + BRILHO NO TURBO)
 // =============================================================================
 
 (function() {
@@ -9,8 +9,8 @@
     // -----------------------------------------------------------------
     const CHARACTERS = [
         { id: 0, name: 'OTTO', color: '#e74c3c', speedInfo: 1.0, turnInfo: 1.0 },
-        { id: 1, name: 'thIAgo', color: '#f1c40f', speedInfo: 1.08, turnInfo: 0.85 },
-        { id: 2, name: 'Thamis', color: '#3498db', speedInfo: 0.92, turnInfo: 1.15 }
+        { id: 1, name: 'SPEED', color: '#f1c40f', speedInfo: 1.08, turnInfo: 0.85 },
+        { id: 2, name: 'TANK', color: '#3498db', speedInfo: 0.92, turnInfo: 1.15 }
     ];
 
     const TRACKS = [
@@ -23,7 +23,7 @@
         MAX_SPEED: 420,
         TURBO_MAX_SPEED: 550,
         ACCEL: 1.5,
-        FRICTION: 0.98,
+        FRICTION: 0.96,
         OFFROAD_DECEL: 0.90,
         CENTRIFUGAL_FORCE: 0.19,
         SEGMENT_LENGTH: 200,
@@ -83,7 +83,7 @@
         visualTilt: 0, bounce: 0, skyColor: 0, 
         inputState: 0, gestureTimer: 0,
         
-        virtualWheel: { x:0, y:0, r:0, opacity:0 },
+        virtualWheel: { x:0, y:0, r:0, opacity:0, isHigh: false }, // Adicionado isHigh
         rivals: [], 
 
         init: function() { 
@@ -164,7 +164,7 @@
         resetPhysics: function() {
             this.speed = 0; this.pos = 0; this.playerX = 0; this.steer = 0;
             this.lap = 1; this.score = 0; this.driftState = 0; this.nitro = 100;
-            this.virtualWheel = { x:0, y:0, r:0, opacity:0 };
+            this.virtualWheel = { x:0, y:0, r:0, opacity:0, isHigh: false };
             particles = [];
         },
 
@@ -341,7 +341,7 @@
             if (!Number.isFinite(d.speed)) d.speed = 0;
             if (!Number.isFinite(d.pos)) d.pos = 0;
             
-            // --- DETECÇÃO DE MÃOS BLINDADA (Normalização) ---
+            // --- DETECÇÃO DE MÃOS ---
             let detected = 0;
             let pLeft = null, pRight = null;
             let nose = null;
@@ -351,11 +351,11 @@
                 const rw = pose.keypoints.find(k => k.name === 'right_wrist');
                 const n  = pose.keypoints.find(k => k.name === 'nose');
 
-                // Normaliza coordenadas de Pixel para Escala da Tela
+                // Normaliza coordenadas
                 const mapPoint = (pt) => {
                     let nx = pt.x;
                     let ny = pt.y;
-                    if (nx > 1) nx = nx / 640; // Se maior que 1, é pixel raw
+                    if (nx > 1) nx = nx / 640; 
                     if (ny > 1) ny = ny / 480;
                     return { x: (1 - nx) * w, y: ny * h };
                 };
@@ -364,26 +364,46 @@
                 if (rw && rw.score > 0.15) { pRight = mapPoint(rw); detected++; }
                 if (n && n.score > 0.15) { nose = mapPoint(n); }
 
-                // GESTO DE TURBO
+                // TURBO GESTUAL
                 if (detected === 2 && nose) {
-                    if (pLeft.y < nose.y && pRight.y < nose.y) {
+                    // Verifica se as mãos estão acima do nariz (Y menor = mais alto)
+                    const isHandsHigh = (pLeft.y < nose.y && pRight.y < nose.y);
+                    
+                    // Sinaliza para o renderizador que o volante está alto
+                    d.virtualWheel.isHigh = isHandsHigh;
+
+                    if (isHandsHigh) {
                          d.gestureTimer++;
                          if (d.gestureTimer > 15 && d.nitro > 5) { d.turboLock = true; window.System.msg("TURBO ATIVADO!"); }
-                    } else { d.gestureTimer = 0; if (d.nitro <= 0) d.turboLock = false; }
+                    } else { 
+                        d.gestureTimer = 0; 
+                        if (d.nitro <= 0) d.turboLock = false; 
+                    }
+                } else {
+                    d.virtualWheel.isHigh = false;
                 }
             }
 
-            // VOLANTE
+            // VOLANTE E INPUT
             if (detected === 2) {
-                d.inputState = 2;
+                d.inputState = 2; // DETECTOU MÃOS!
                 const dx = pRight.x - pLeft.x; 
                 const dy = pRight.y - pLeft.y;
                 const rawAngle = Math.atan2(dy, dx);
                 d.targetSteer = (Math.abs(rawAngle) > 0.05) ? rawAngle * 2.5 : 0;
-                d.virtualWheel.x = (pLeft.x + pRight.x) / 2; d.virtualWheel.y = (pLeft.y + pRight.y) / 2;
-                d.virtualWheel.r = Math.max(40, Math.hypot(dx, dy) / 2); d.virtualWheel.opacity = 1.0; 
+                
+                // ATUALIZA POSIÇÃO DO VOLANTE PARA SEGUIR AS MÃOS
+                d.virtualWheel.x = (pLeft.x + pRight.x) / 2; 
+                d.virtualWheel.y = (pLeft.y + pRight.y) / 2;
+                
+                d.virtualWheel.r = Math.max(40, Math.hypot(dx, dy) / 2); 
+                d.virtualWheel.opacity = 1.0; 
             } else {
-                d.inputState = 0; d.targetSteer = 0; 
+                d.inputState = 0; // SEM MÃOS
+                d.targetSteer = 0; 
+                d.virtualWheel.isHigh = false;
+                
+                // Volta para o centro se perder as mãos
                 d.virtualWheel.x += ((w / 2) - d.virtualWheel.x) * 0.1;
                 d.virtualWheel.y += ((h * 0.75) - d.virtualWheel.y) * 0.1;
                 d.virtualWheel.r += (60 - d.virtualWheel.r) * 0.1;
@@ -393,14 +413,20 @@
             d.steer += (d.targetSteer - d.steer) * CONF.FRICTION;
             d.steer = Math.max(-1.5, Math.min(1.5, d.steer));
 
-            // Velocidade
+            // --- LÓGICA DE ACELERAÇÃO ---
             let currentMax = CONF.MAX_SPEED * charStats.speedInfo;
             if (d.turboLock && d.nitro > 0) { currentMax = CONF.TURBO_MAX_SPEED; d.nitro -= 0.6; if(d.nitro <= 0) { d.nitro = 0; d.turboLock = false; } }
             else { d.nitro = Math.min(100, d.nitro + 0.1); }
             if(d.boostTimer > 0) { currentMax += 100; d.boostTimer--; }
 
-            const hasGas = (d.inputState > 0 || d.turboLock);
-            if (d.state === 'RACE') d.speed += (currentMax - d.speed) * 0.075;
+            const hasGas = (d.inputState > 0 || d.turboLock); // SÓ ACELERA SE TIVER MÃOS OU TURBO
+            
+            if (hasGas && d.state === 'RACE') {
+                d.speed += (currentMax - d.speed) * 0.075;
+            } else {
+                d.speed *= CONF.FRICTION; // FREIA SE SOLTAR
+            }
+
             if (Math.abs(d.playerX) > 2.2) d.speed *= CONF.OFFROAD_DECEL;
 
             // Movimento Lateral
@@ -421,30 +447,18 @@
                 }
             });
 
-            // === NOVA LÓGICA: COLISÃO ENTRE JOGADORES (PVP) ===
+            // COLISÃO ENTRE JOGADORES (PVP)
             d.rivals.forEach(r => {
-                // Cálculo de distância longitudinal (considerando loop da pista)
                 let distZ = r.pos - d.pos;
                 if (distZ > trackLength / 2) distZ -= trackLength;
                 if (distZ < -trackLength / 2) distZ += trackLength;
-
-                // Distância Lateral
                 let distX = r.x - d.playerX;
 
-                // Se estiver dentro da caixa de colisão (aprox 3 metros de profundidade, 0.6 lateral)
                 if (Math.abs(distZ) < 300 && Math.abs(distX) < 0.6) {
-                    // Efeito da batida
-                    d.speed *= 0.95; // Perda leve de velocidade
-                    d.bounce = -5;   // Tremida
-                    
-                    // Repulsão Lateral (Empurra o jogador para o lado oposto)
+                    d.speed *= 0.95; 
+                    d.bounce = -5;
                     d.playerX -= (distX > 0 ? 0.08 : -0.08); 
-                    
-                    // Feedback Sonoro e Visual (com limite aleatório para não saturar)
-                    if (Math.random() > 0.8) {
-                        window.Sfx.crash();
-                        window.Gfx.shakeScreen(5);
-                    }
+                    if (Math.random() > 0.8) { window.Sfx.crash(); window.Gfx.shakeScreen(5); }
                 }
             });
 
@@ -456,7 +470,7 @@
             }
             if (d.pos < 0) d.pos += trackLength;
 
-            // IA/Rivais
+            // RIVAIS
             let pAhead = 0;
             d.rivals.forEach(r => {
                 if (r.isRemote) {
@@ -737,6 +751,14 @@
                     ctx.globalAlpha = vw.opacity; 
                     ctx.translate(vw.x, vw.y);
                     
+                    // BRILHO QUANDO LEVANTA O VOLANTE
+                    if (vw.isHigh) {
+                        ctx.shadowBlur = 25;
+                        ctx.shadowColor = '#00ffff';
+                    } else {
+                        ctx.shadowBlur = 0;
+                    }
+
                     ctx.lineWidth = 8; ctx.strokeStyle = '#222'; ctx.beginPath(); ctx.arc(0, 0, vw.r, 0, Math.PI * 2); ctx.stroke();
                     ctx.lineWidth = 4; ctx.strokeStyle = '#00ffff'; ctx.beginPath(); ctx.arc(0, 0, vw.r - 8, 0, Math.PI * 2); ctx.stroke();
                     ctx.rotate(d.steer * 1.4); 
