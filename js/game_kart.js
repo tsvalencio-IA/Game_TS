@@ -1,5 +1,5 @@
 // =============================================================================
-// KART DO OTTO – ULTIMATE V7 (VOLANTE SEGUE AS MÃOS + BRILHO NO TURBO)
+// KART DO OTTO – V11 (BASE V7 + FIX VISIBILIDADE MULTIPLAYER)
 // =============================================================================
 
 (function() {
@@ -83,7 +83,7 @@
         visualTilt: 0, bounce: 0, skyColor: 0, 
         inputState: 0, gestureTimer: 0,
         
-        virtualWheel: { x:0, y:0, r:0, opacity:0, isHigh: false }, // Adicionado isHigh
+        virtualWheel: { x:0, y:0, r:0, opacity:0, isHigh: false },
         rivals: [], 
 
         init: function() { 
@@ -341,7 +341,7 @@
             if (!Number.isFinite(d.speed)) d.speed = 0;
             if (!Number.isFinite(d.pos)) d.pos = 0;
             
-            // --- DETECÇÃO DE MÃOS ---
+            // --- DETECÇÃO DE MÃOS (ESTRUTURA V7 QUE VOCÊ CONFIRMOU QUE FUNCIONA) ---
             let detected = 0;
             let pLeft = null, pRight = null;
             let nose = null;
@@ -351,7 +351,7 @@
                 const rw = pose.keypoints.find(k => k.name === 'right_wrist');
                 const n  = pose.keypoints.find(k => k.name === 'nose');
 
-                // Normaliza coordenadas
+                // FUNÇÃO DE MAPEAMENTO ORIGINAL V7
                 const mapPoint = (pt) => {
                     let nx = pt.x;
                     let ny = pt.y;
@@ -366,10 +366,7 @@
 
                 // TURBO GESTUAL
                 if (detected === 2 && nose) {
-                    // Verifica se as mãos estão acima do nariz (Y menor = mais alto)
                     const isHandsHigh = (pLeft.y < nose.y && pRight.y < nose.y);
-                    
-                    // Sinaliza para o renderizador que o volante está alto
                     d.virtualWheel.isHigh = isHandsHigh;
 
                     if (isHandsHigh) {
@@ -392,10 +389,8 @@
                 const rawAngle = Math.atan2(dy, dx);
                 d.targetSteer = (Math.abs(rawAngle) > 0.05) ? rawAngle * 2.5 : 0;
                 
-                // ATUALIZA POSIÇÃO DO VOLANTE PARA SEGUIR AS MÃOS
                 d.virtualWheel.x = (pLeft.x + pRight.x) / 2; 
                 d.virtualWheel.y = (pLeft.y + pRight.y) / 2;
-                
                 d.virtualWheel.r = Math.max(40, Math.hypot(dx, dy) / 2); 
                 d.virtualWheel.opacity = 1.0; 
             } else {
@@ -403,7 +398,6 @@
                 d.targetSteer = 0; 
                 d.virtualWheel.isHigh = false;
                 
-                // Volta para o centro se perder as mãos
                 d.virtualWheel.x += ((w / 2) - d.virtualWheel.x) * 0.1;
                 d.virtualWheel.y += ((h * 0.75) - d.virtualWheel.y) * 0.1;
                 d.virtualWheel.r += (60 - d.virtualWheel.r) * 0.1;
@@ -419,7 +413,7 @@
             else { d.nitro = Math.min(100, d.nitro + 0.1); }
             if(d.boostTimer > 0) { currentMax += 100; d.boostTimer--; }
 
-            const hasGas = (d.inputState > 0 || d.turboLock); // SÓ ACELERA SE TIVER MÃOS OU TURBO
+            const hasGas = (d.inputState > 0 || d.turboLock); 
             
             if (hasGas && d.state === 'RACE') {
                 d.speed += (currentMax - d.speed) * 0.075;
@@ -444,21 +438,6 @@
             seg.obs.forEach(o => {
                 if(o.x < 10 && Math.abs(d.playerX - o.x) < 0.35 && Math.abs(d.playerX) < 4.0) {
                     d.speed *= 0.55; o.x = 999; d.bounce = -15; window.Sfx.crash(); window.Gfx.shakeScreen(15);
-                }
-            });
-
-            // COLISÃO ENTRE JOGADORES (PVP)
-            d.rivals.forEach(r => {
-                let distZ = r.pos - d.pos;
-                if (distZ > trackLength / 2) distZ -= trackLength;
-                if (distZ < -trackLength / 2) distZ += trackLength;
-                let distX = r.x - d.playerX;
-
-                if (Math.abs(distZ) < 300 && Math.abs(distX) < 0.6) {
-                    d.speed *= 0.95; 
-                    d.bounce = -5;
-                    d.playerX -= (distX > 0 ? 0.08 : -0.08); 
-                    if (Math.random() > 0.8) { window.Sfx.crash(); window.Gfx.shakeScreen(5); }
                 }
             });
 
@@ -567,16 +546,19 @@
                 ctx.fill();
             }
 
+            // CORREÇÃO VISUAL: Loop reverso para desenhar rivais do fundo para a frente
             for(let n = CONF.DRAW_DISTANCE - 1; n >= 0; n--) {
                 const coord = segmentCoords[n]; 
                 if (!coord) continue;
                 const seg = getSegment(coord.index);
 
+                // --- DESENHA RIVAIS ---
                 d.rivals.forEach(r => {
                     let rRelPos = r.pos - d.pos; 
                     if(rRelPos < -trackLength/2) rRelPos += trackLength; 
                     if(rRelPos > trackLength/2) rRelPos -= trackLength;
 
+                    // Ajuste de tolerância para desenhar no segmento correto
                     if (Math.abs(Math.floor(rRelPos / CONF.SEGMENT_LENGTH) - n) < 1.5 && n > 1) {
                         const rScale = coord.scale * w * 0.0055;
                         const rx = coord.x + (r.x * (w * 3) * coord.scale / 2);
@@ -640,7 +622,8 @@
             } else {
                 ctx.fillStyle = 'red'; ctx.font='bold 12px Arial'; ctx.textAlign='center'; ctx.fillText('EU', 0, -32);
             }
-            ctx.restore(); ctx.restore(); 
+            ctx.restore(); 
+            // CORRIGIDO: REMOVIDO O "CTX.RESTORE()" DUPLICADO AQUI!
         },
 
         renderModeSelect: function(ctx, w, h) {
