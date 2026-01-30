@@ -1,5 +1,5 @@
 // =============================================================================
-// KART DO OTTO – HYBRID EDITION V4 (FIX: MAPEAMENTO DE MÃOS + RIVAIS)
+// KART DO OTTO – ULTIMATE V5 (COM COLISÃO ENTRE JOGADORES PvP)
 // =============================================================================
 
 (function() {
@@ -9,8 +9,8 @@
     // -----------------------------------------------------------------
     const CHARACTERS = [
         { id: 0, name: 'OTTO', color: '#e74c3c', speedInfo: 1.0, turnInfo: 1.0 },
-        { id: 1, name: 'THiaGO', color: '#f1c40f', speedInfo: 1.08, turnInfo: 0.85 },
-        { id: 2, name: 'THAMIS', color: '#3498db', speedInfo: 0.92, turnInfo: 1.15 }
+        { id: 1, name: 'thIAgo', color: '#f1c40f', speedInfo: 1.08, turnInfo: 0.85 },
+        { id: 2, name: 'Thamis', color: '#3498db', speedInfo: 0.92, turnInfo: 1.15 }
     ];
 
     const TRACKS = [
@@ -243,7 +243,6 @@
                         speed: data[id].speed || 0,
                         pos: data[id].pos || 0,
                         x: data[id].x || 0,
-                        // Garante fallback de cor se falhar
                         color: (data[id].charId !== undefined) ? CHARACTERS[data[id].charId].color : '#fff'
                     }));
                 
@@ -342,7 +341,7 @@
             if (!Number.isFinite(d.speed)) d.speed = 0;
             if (!Number.isFinite(d.pos)) d.pos = 0;
             
-            // --- DETECÇÃO DE MÃOS BLINDADA ---
+            // --- DETECÇÃO DE MÃOS BLINDADA (Normalização) ---
             let detected = 0;
             let pLeft = null, pRight = null;
             let nose = null;
@@ -352,60 +351,39 @@
                 const rw = pose.keypoints.find(k => k.name === 'right_wrist');
                 const n  = pose.keypoints.find(k => k.name === 'nose');
 
-                // FUNÇÃO VITAL: Converte Pixel (0-640) para Tela (0-Width)
-                // Se a coordenada for > 1, ela é pixel e precisa ser normalizada
-                // 640x480 é a resolução padrão interna da câmera
+                // Normaliza coordenadas de Pixel para Escala da Tela
                 const mapPoint = (pt) => {
                     let nx = pt.x;
                     let ny = pt.y;
-                    
-                    // Se for maior que 1, assume que é pixel e normaliza
-                    if (nx > 1) nx = nx / 640;
+                    if (nx > 1) nx = nx / 640; // Se maior que 1, é pixel raw
                     if (ny > 1) ny = ny / 480;
-
-                    // Espelha horizontalmente (1 - x) e escala para a tela
                     return { x: (1 - nx) * w, y: ny * h };
                 };
 
-                // Limiar 0.15 é bom para evitar falsos positivos
                 if (lw && lw.score > 0.15) { pLeft = mapPoint(lw); detected++; }
                 if (rw && rw.score > 0.15) { pRight = mapPoint(rw); detected++; }
                 if (n && n.score > 0.15) { nose = mapPoint(n); }
 
-                // --- GESTO DE TURBO (PUNHOS ACIMA DO NARIZ) ---
+                // GESTO DE TURBO
                 if (detected === 2 && nose) {
                     if (pLeft.y < nose.y && pRight.y < nose.y) {
                          d.gestureTimer++;
-                         if (d.gestureTimer > 15 && d.nitro > 5) {
-                             d.turboLock = true;
-                             window.System.msg("TURBO ATIVADO!");
-                         }
-                    } else {
-                        d.gestureTimer = 0;
-                        if (d.nitro <= 0) d.turboLock = false;
-                    }
+                         if (d.gestureTimer > 15 && d.nitro > 5) { d.turboLock = true; window.System.msg("TURBO ATIVADO!"); }
+                    } else { d.gestureTimer = 0; if (d.nitro <= 0) d.turboLock = false; }
                 }
             }
 
-            // --- DIREÇÃO / VOLANTE ---
+            // VOLANTE
             if (detected === 2) {
                 d.inputState = 2;
                 const dx = pRight.x - pLeft.x; 
                 const dy = pRight.y - pLeft.y;
-                // Calcula o ângulo entre os punhos
                 const rawAngle = Math.atan2(dy, dx);
-                
-                // Zona morta pequena para estabilidade
                 d.targetSteer = (Math.abs(rawAngle) > 0.05) ? rawAngle * 2.5 : 0;
-                
-                d.virtualWheel.x = (pLeft.x + pRight.x) / 2; 
-                d.virtualWheel.y = (pLeft.y + pRight.y) / 2;
-                d.virtualWheel.r = Math.max(40, Math.hypot(dx, dy) / 2);
-                d.virtualWheel.opacity = 1.0; 
+                d.virtualWheel.x = (pLeft.x + pRight.x) / 2; d.virtualWheel.y = (pLeft.y + pRight.y) / 2;
+                d.virtualWheel.r = Math.max(40, Math.hypot(dx, dy) / 2); d.virtualWheel.opacity = 1.0; 
             } else {
-                d.inputState = 0; 
-                d.targetSteer = 0; 
-                // Retorno suave ao centro se perder detecção
+                d.inputState = 0; d.targetSteer = 0; 
                 d.virtualWheel.x += ((w / 2) - d.virtualWheel.x) * 0.1;
                 d.virtualWheel.y += ((h * 0.75) - d.virtualWheel.y) * 0.1;
                 d.virtualWheel.r += (60 - d.virtualWheel.r) * 0.1;
@@ -417,46 +395,60 @@
 
             // Velocidade
             let currentMax = CONF.MAX_SPEED * charStats.speedInfo;
-            if (d.turboLock && d.nitro > 0) {
-                currentMax = CONF.TURBO_MAX_SPEED; 
-                d.nitro -= 0.6;
-                if(d.nitro <= 0) { d.nitro = 0; d.turboLock = false; }
-            } else { 
-                d.nitro = Math.min(100, d.nitro + 0.1); 
-            }
-            
+            if (d.turboLock && d.nitro > 0) { currentMax = CONF.TURBO_MAX_SPEED; d.nitro -= 0.6; if(d.nitro <= 0) { d.nitro = 0; d.turboLock = false; } }
+            else { d.nitro = Math.min(100, d.nitro + 0.1); }
             if(d.boostTimer > 0) { currentMax += 100; d.boostTimer--; }
 
             const hasGas = (d.inputState > 0 || d.turboLock);
-            // ACELERAÇÃO AUTOMÁTICA EM MODO CORRIDA
             if (d.state === 'RACE') d.speed += (currentMax - d.speed) * 0.075;
-            
             if (Math.abs(d.playerX) > 2.2) d.speed *= CONF.OFFROAD_DECEL;
 
-            // Movimento Lateral e Centrífuga
+            // Movimento Lateral
             const segIdx = Math.floor(d.pos / CONF.SEGMENT_LENGTH);
             const seg = getSegment(segIdx);
             const speedRatio = d.speed / CONF.MAX_SPEED;
             const centrifugal = -seg.curve * (speedRatio * speedRatio) * CONF.CENTRIFUGAL_FORCE; 
-            
             const steerPower = 0.18 * charStats.turnInfo;
             d.playerX += (d.steer * steerPower * speedRatio) + (centrifugal * (1 - Math.abs(d.steer)*0.5));
 
-            // Limites
             if(d.playerX < -4.5) { d.playerX = -4.5; d.speed *= 0.95; }
             if(d.playerX > 4.5)  { d.playerX = 4.5;  d.speed *= 0.95; }
 
-            // Colisões
+            // COLISÕES COM OBSTÁCULOS
             seg.obs.forEach(o => {
                 if(o.x < 10 && Math.abs(d.playerX - o.x) < 0.35 && Math.abs(d.playerX) < 4.0) {
-                    d.speed *= 0.55; o.x = 999;
-                    d.bounce = -15; window.Sfx.crash(); window.Gfx.shakeScreen(15);
+                    d.speed *= 0.55; o.x = 999; d.bounce = -15; window.Sfx.crash(); window.Gfx.shakeScreen(15);
                 }
             });
 
-            // Avanço
-            d.pos += d.speed;
+            // === NOVA LÓGICA: COLISÃO ENTRE JOGADORES (PVP) ===
+            d.rivals.forEach(r => {
+                // Cálculo de distância longitudinal (considerando loop da pista)
+                let distZ = r.pos - d.pos;
+                if (distZ > trackLength / 2) distZ -= trackLength;
+                if (distZ < -trackLength / 2) distZ += trackLength;
 
+                // Distância Lateral
+                let distX = r.x - d.playerX;
+
+                // Se estiver dentro da caixa de colisão (aprox 3 metros de profundidade, 0.6 lateral)
+                if (Math.abs(distZ) < 300 && Math.abs(distX) < 0.6) {
+                    // Efeito da batida
+                    d.speed *= 0.95; // Perda leve de velocidade
+                    d.bounce = -5;   // Tremida
+                    
+                    // Repulsão Lateral (Empurra o jogador para o lado oposto)
+                    d.playerX -= (distX > 0 ? 0.08 : -0.08); 
+                    
+                    // Feedback Sonoro e Visual (com limite aleatório para não saturar)
+                    if (Math.random() > 0.8) {
+                        window.Sfx.crash();
+                        window.Gfx.shakeScreen(5);
+                    }
+                }
+            });
+
+            d.pos += d.speed;
             if (d.pos >= trackLength) {
                 d.pos -= trackLength; d.lap++;
                 if (d.lap <= d.totalLaps) { lapPopupText = `VOLTA ${d.lap}/${d.totalLaps}`; lapPopupTimer = 120; window.System.msg(lapPopupText); }
@@ -464,7 +456,7 @@
             }
             if (d.pos < 0) d.pos += trackLength;
 
-            // RIVAIS (Interpolação Simples)
+            // IA/Rivais
             let pAhead = 0;
             d.rivals.forEach(r => {
                 if (r.isRemote) {
@@ -503,7 +495,6 @@
             const currentSegIndex = Math.floor(d.pos / CONF.SEGMENT_LENGTH);
             const isOffRoad = Math.abs(d.playerX) > 2.2;
 
-            // CÉU
             const skyGrads = [['#3388ff', '#88ccff'], ['#e67e22', '#f1c40f'], ['#0984e3', '#74b9ff']];
             const currentSky = skyGrads[d.skyColor] || skyGrads[0];
             const gradSky = ctx.createLinearGradient(0, 0, 0, horizon);
@@ -524,7 +515,6 @@
             const theme = themes[getSegment(currentSegIndex).theme || 'grass'];
             ctx.fillStyle = isOffRoad ? theme.off : theme.dark; ctx.fillRect(0, horizon, w, h-horizon);
 
-            // ESTRADA
             let dx = 0; let camX = d.playerX * (w * 0.4);
             let segmentCoords = [];
 
@@ -563,13 +553,11 @@
                 ctx.fill();
             }
 
-            // OBJETOS E RIVAIS (De trás para frente)
             for(let n = CONF.DRAW_DISTANCE - 1; n >= 0; n--) {
                 const coord = segmentCoords[n]; 
                 if (!coord) continue;
                 const seg = getSegment(coord.index);
 
-                // --- DESENHO CORRIGIDO DOS RIVAIS ---
                 d.rivals.forEach(r => {
                     let rRelPos = r.pos - d.pos; 
                     if(rRelPos < -trackLength/2) rRelPos += trackLength; 
@@ -578,7 +566,6 @@
                     if (Math.abs(Math.floor(rRelPos / CONF.SEGMENT_LENGTH) - n) < 1.5 && n > 1) {
                         const rScale = coord.scale * w * 0.0055;
                         const rx = coord.x + (r.x * (w * 3) * coord.scale / 2);
-                        // Desenha usando a mesma função do Player para garantir visibilidade
                         this.drawKartSprite(ctx, rx, coord.y, rScale, 0, 0, r, r.color, true);
                     }
                 });
@@ -594,7 +581,6 @@
                 });
             }
             
-            // JOGADOR
             const playerColor = CHARACTERS[d.selectedChar].color;
             this.drawKartSprite(ctx, cx, h*0.85 + d.bounce, w * 0.0055, d.steer, d.visualTilt, d, playerColor, false);
             
@@ -635,7 +621,6 @@
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, -20, 18, 0, Math.PI*2); ctx.fill(); 
             ctx.fillStyle = '#333'; ctx.fillRect(-15, -25, 30, 8); 
             
-            // TAGS DE IDENTIFICAÇÃO
             if (isRival) {
                 ctx.fillStyle = '#0f0'; ctx.font='bold 12px Arial'; ctx.textAlign='center'; ctx.fillText('P2', 0, -32);
             } else {
