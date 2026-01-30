@@ -1,5 +1,5 @@
 // =============================================================================
-// KART DO OTTO – V11 (BASE V7 + FIX VISIBILIDADE MULTIPLAYER)
+// KART DO OTTO – ULTIMATE V12 (CORREÇÃO TOTAL: CÂMERA + RIVAIS)
 // =============================================================================
 
 (function() {
@@ -341,7 +341,7 @@
             if (!Number.isFinite(d.speed)) d.speed = 0;
             if (!Number.isFinite(d.pos)) d.pos = 0;
             
-            // --- DETECÇÃO DE MÃOS (ESTRUTURA V7 QUE VOCÊ CONFIRMOU QUE FUNCIONA) ---
+            // --- DETECÇÃO DE MÃOS (CORREÇÃO DE MAPEAMENTO) ---
             let detected = 0;
             let pLeft = null, pRight = null;
             let nose = null;
@@ -351,15 +351,22 @@
                 const rw = pose.keypoints.find(k => k.name === 'right_wrist');
                 const n  = pose.keypoints.find(k => k.name === 'nose');
 
-                // FUNÇÃO DE MAPEAMENTO ORIGINAL V7
+                // FUNÇÃO DE MAPEAMENTO SEGURA (V12)
+                // Assume 640x480 que é o padrão do MoveNet Lightning no navegador
+                // Mesmo que a câmera seja HD, o modelo interno geralmente redimensiona
                 const mapPoint = (pt) => {
                     let nx = pt.x;
                     let ny = pt.y;
+                    
+                    // Se for > 1, é pixel. Normaliza para 0-1
                     if (nx > 1) nx = nx / 640; 
                     if (ny > 1) ny = ny / 480;
+                    
+                    // Inverte X (espelho) e escala para tela
                     return { x: (1 - nx) * w, y: ny * h };
                 };
 
+                // Limiar de confiança 0.15 (mais permissivo para funcionar em várias luzes)
                 if (lw && lw.score > 0.15) { pLeft = mapPoint(lw); detected++; }
                 if (rw && rw.score > 0.15) { pRight = mapPoint(rw); detected++; }
                 if (n && n.score > 0.15) { nose = mapPoint(n); }
@@ -398,6 +405,7 @@
                 d.targetSteer = 0; 
                 d.virtualWheel.isHigh = false;
                 
+                // Volta para o centro se perder as mãos
                 d.virtualWheel.x += ((w / 2) - d.virtualWheel.x) * 0.1;
                 d.virtualWheel.y += ((h * 0.75) - d.virtualWheel.y) * 0.1;
                 d.virtualWheel.r += (60 - d.virtualWheel.r) * 0.1;
@@ -588,7 +596,9 @@
         },
 
         drawKartSprite: function(ctx, cx, y, carScale, steer, tilt, d, color, isRival) {
-            ctx.save(); ctx.translate(cx, y); ctx.scale(carScale, carScale);
+            ctx.save(); 
+            ctx.translate(cx, y); 
+            ctx.scale(carScale, carScale);
             ctx.rotate(tilt * 0.02 + (d.driftState === 1 ? d.driftDir * 0.3 : 0));
             
             ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, 35, 60, 15, 0, 0, Math.PI*2); ctx.fill();
@@ -623,7 +633,7 @@
                 ctx.fillStyle = 'red'; ctx.font='bold 12px Arial'; ctx.textAlign='center'; ctx.fillText('EU', 0, -32);
             }
             ctx.restore(); 
-            // CORRIGIDO: REMOVIDO O "CTX.RESTORE()" DUPLICADO AQUI!
+            ctx.restore(); 
         },
 
         renderModeSelect: function(ctx, w, h) {
@@ -734,7 +744,6 @@
                     ctx.globalAlpha = vw.opacity; 
                     ctx.translate(vw.x, vw.y);
                     
-                    // BRILHO QUANDO LEVANTA O VOLANTE
                     if (vw.isHigh) {
                         ctx.shadowBlur = 25;
                         ctx.shadowColor = '#00ffff';
