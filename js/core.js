@@ -1,6 +1,6 @@
 /* =================================================================
-   THIAGUINHO OS ENGINE KERNEL V3.1 (STABLE FIX)
-   Correção: Hoisting Resolution & Initialization Safety
+   THIAGUINHO OS ENGINE KERNEL V3.2 (LOOP FIX)
+   Correção Crítica: Timestamp NaN Fix & Resource Loader
    ================================================================= */
 
 window.System = (function() {
@@ -13,50 +13,49 @@ window.System = (function() {
         CAM_HEIGHT: 480
     };
 
-    // 2. Variáveis de Estado (Definidas fora do objeto para acesso seguro)
+    // 2. Variáveis de Estado
     let canvas, ctx;
     let games = [];
     let activeGame = null;
     let loopId = null;
     let lastTime = 0;
 
-    // 3. Sub-sistemas
+    // 3. Audio System (WebAudio)
     const AudioSys = {
-        ctx: null,
-        masterGain: null,
+        ctx: null, masterGain: null,
         init: () => {
             if (AudioSys.ctx) return;
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             AudioSys.ctx = new AudioContext();
             AudioSys.masterGain = AudioSys.ctx.createGain();
-            AudioSys.masterGain.gain.value = 0.4;
+            AudioSys.masterGain.gain.value = 0.3;
             AudioSys.masterGain.connect(AudioSys.ctx.destination);
         },
         playTone: (freq, type, duration, vol = 0.5) => {
             if (!AudioSys.ctx) return;
-            const osc = AudioSys.ctx.createOscillator();
-            const gain = AudioSys.ctx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, AudioSys.ctx.currentTime);
-            gain.gain.setValueAtTime(vol, AudioSys.ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, AudioSys.ctx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(AudioSys.masterGain);
-            osc.start();
-            osc.stop(AudioSys.ctx.currentTime + duration);
+            try {
+                const osc = AudioSys.ctx.createOscillator();
+                const gain = AudioSys.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, AudioSys.ctx.currentTime);
+                gain.gain.setValueAtTime(vol, AudioSys.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, AudioSys.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(AudioSys.masterGain);
+                osc.start();
+                osc.stop(AudioSys.ctx.currentTime + duration);
+            } catch(e){}
         },
         sfx: {
-            hover: () => AudioSys.playTone(400, 'sine', 0.1, 0.1),
+            hover: () => AudioSys.playTone(400, 'sine', 0.05, 0.05),
             select: () => AudioSys.playTone(800, 'square', 0.1, 0.1),
-            back: () => AudioSys.playTone(200, 'triangle', 0.15, 0.2),
-            error: () => AudioSys.playTone(150, 'sawtooth', 0.3, 0.3),
-            success: () => {
-                AudioSys.playTone(600, 'sine', 0.1, 0.2);
-                setTimeout(() => AudioSys.playTone(900, 'sine', 0.2, 0.2), 100);
-            }
+            back: () => AudioSys.playTone(200, 'triangle', 0.15, 0.1),
+            error: () => AudioSys.playTone(150, 'sawtooth', 0.3, 0.2),
+            success: () => { AudioSys.playTone(600, 'sine', 0.1, 0.2); setTimeout(() => AudioSys.playTone(900, 'sine', 0.2, 0.2), 100); }
         }
     };
 
+    // 4. Input System (Camera)
     const InputSys = {
         video: null, detector: null, pose: null, isReady: false,
         init: async () => {
@@ -75,7 +74,7 @@ window.System = (function() {
                     InputSys.isReady = true;
                     InputSys.detectLoop();
                 }
-            } catch (e) { console.warn("Cam Error:", e); }
+            } catch (e) { console.log("Cam offline (Mouse mode)"); }
         },
         detectLoop: async () => {
             if (!InputSys.isReady) return;
@@ -83,7 +82,7 @@ window.System = (function() {
                 const poses = await InputSys.detector.estimatePoses(InputSys.video, { flipHorizontal: false });
                 if (poses.length > 0) InputSys.pose = poses[0];
             } catch(e) {}
-            setTimeout(InputSys.detectLoop, 33);
+            setTimeout(InputSys.detectLoop, 33); // ~30 FPS tracking
         },
         getNormalizedPose: () => {
             if (!InputSys.pose) return null;
@@ -93,36 +92,34 @@ window.System = (function() {
         }
     };
 
+    // 5. Network System
     const NetSys = {
-        id: 'Player_' + Math.random().toString(36).substr(2, 5).toUpperCase(),
-        statusEl: null,
+        id: 'Player_' + Math.floor(Math.random()*9999),
         init: () => {
-            NetSys.statusEl = document.getElementById('net-status');
             const elId = document.getElementById('console-id');
             if(elId) elId.innerText = NetSys.id;
+            const statusEl = document.getElementById('net-status');
             
             if (window.FIREBASE_READY && window.DB) {
                 window.DB.ref(".info/connected").on("value", (snap) => {
-                    NetSys.setStatus(snap.val() === true);
-                    if(snap.val() === true) {
+                    const online = snap.val() === true;
+                    if(statusEl) {
+                        statusEl.innerHTML = online ? "● ONLINE" : "● OFFLINE";
+                        statusEl.style.color = online ? "#00ff88" : "#ff3333";
+                    }
+                    if(online) {
                         window.DB.ref(`online/${NetSys.id}`).onDisconnect().remove();
                         window.DB.ref(`online/${NetSys.id}`).set({ state: 'IDLE', lastSeen: Date.now() });
                     }
                 });
             }
-        },
-        setStatus: (online) => {
-            if(NetSys.statusEl) {
-                NetSys.statusEl.innerHTML = online ? "● ONLINE" : "● OFFLINE";
-                NetSys.statusEl.style.color = online ? "#00ff88" : "#ff3333";
-            }
         }
     };
 
-    // 4. Métodos da Engine (Definidos antes do objeto final para evitar ReferenceError)
-    
+    // 6. Engine Core Functions
     const stopGame = () => {
         if (loopId) cancelAnimationFrame(loopId);
+        loopId = null;
         if (activeGame && activeGame.logic.cleanup) activeGame.logic.cleanup();
         activeGame = null;
         if (ctx) ctx.clearRect(0,0, canvas.width, canvas.height);
@@ -130,7 +127,12 @@ window.System = (function() {
 
     const loop = (timestamp) => {
         if (!activeGame) return;
-        const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+        
+        // Correção de NaN: Se timestamp for undefined ou inválido, usa lastTime + 16ms
+        if (!timestamp) timestamp = lastTime + 16.6;
+        
+        const rawDt = (timestamp - lastTime) / 1000;
+        const dt = Math.min(Math.max(rawDt, 0.001), 0.1); // Clamp entre 1ms e 100ms
         lastTime = timestamp;
 
         ctx.fillStyle = "#000";
@@ -139,7 +141,7 @@ window.System = (function() {
         if (activeGame.logic.update) {
             const inputData = { pose: InputSys.getNormalizedPose(), rawPose: InputSys.pose };
             activeGame.logic.update(dt, inputData);
-            activeGame.logic.draw(ctx, canvas.width, canvas.height);
+            if(activeGame.logic.draw) activeGame.logic.draw(ctx, canvas.width, canvas.height);
         }
         loopId = requestAnimationFrame(loop);
     };
@@ -167,8 +169,9 @@ window.System = (function() {
             });
         }
 
+        // CORREÇÃO: Não chamar loop() diretamente, usar requestAnimationFrame
         lastTime = performance.now();
-        loop();
+        loopId = requestAnimationFrame(loop);
     };
 
     const menu = () => {
@@ -189,7 +192,7 @@ window.System = (function() {
             const card = document.createElement('div');
             card.className = 'channel-card';
             card.innerHTML = `<div class="channel-icon">${icon}</div><div class="channel-title">${title}</div>`;
-            card.onclick = () => loadGame(id); // Usa a função local segura
+            card.onclick = () => loadGame(id);
             card.onmouseenter = () => AudioSys.sfx.hover();
             grid.appendChild(card);
         }
@@ -197,16 +200,16 @@ window.System = (function() {
 
     const init = async () => {
         canvas = document.getElementById('game-canvas');
-        if(!canvas) return; // Segurança
+        if(!canvas) return;
         
         ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
         
-        window.addEventListener('resize', () => {
+        const resize = () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-        });
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', resize);
+        resize();
 
         NetSys.init();
         await InputSys.init();
@@ -217,19 +220,15 @@ window.System = (function() {
             setTimeout(() => loader.style.display = 'none', 500);
         }
 
+        // Unlock Audio Context
         document.body.addEventListener('click', () => {
             AudioSys.init();
             if(InputSys.video) InputSys.video.play().catch(()=>{});
         }, { once: true });
     };
 
-    // 5. Exposição Pública (API Segura)
     return {
-        init: init,
-        registerGame: registerGame,
-        loadGame: loadGame,
-        home: menu,
-        stopGame: stopGame,
+        init, registerGame, loadGame, home: menu, stopGame,
         playerId: NetSys.id,
         Math: {
             lerp: (a, b, t) => a + (b - a) * t,
@@ -239,5 +238,4 @@ window.System = (function() {
     };
 })();
 
-// Auto-boot seguro
 window.addEventListener('load', window.System.init);
