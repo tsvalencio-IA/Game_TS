@@ -1,71 +1,128 @@
+/* =================================================================
+   GAME: KNOCKOUT AR (Boxing)
+   Features: Acceleration Detection, Screen Shake, Dynamic Opponent
+   ================================================================= */
 (function() {
     const Game = {
         state: 'FIGHT',
-        player: { hp: 100 }, enemy: { hp: 100, state: 'IDLE', timer: 0 },
-        shake: 0,
+        hp: 100, enemyHp: 100,
+        shake: 0, enemyTimer: 0,
         
-        init: function(sys) {
-            this.sys = sys;
-            this.player.hp = 100; this.enemy.hp = 100; this.state = 'FIGHT';
-            const ui = document.getElementById('game-overlay-container');
-            if(ui) ui.innerHTML = `
-                <div style="position:absolute; top:20px; left:20px; width:40%; height:30px; background:#500; border:2px solid #fff; transform: skewX(20deg);"><div id="p-hp" style="width:100%; height:100%; background:#0f0;"></div></div>
-                <div style="position:absolute; top:20px; right:20px; width:40%; height:30px; background:#500; border:2px solid #fff; transform: skewX(-20deg);"><div id="e-hp" style="width:100%; height:100%; background:#fa0; float:right;"></div></div>
-                <div id="ko-msg" style="position:absolute; top:40%; width:100%; text-align:center; font-family:'Russo One'; font-size:5rem; color:#f00; display:none;">K.O.!</div>`;
+        init: function(pid, audio) {
+            this.audio = audio;
+            this.hp = 100; this.enemyHp = 100;
+            this.state = 'FIGHT';
+            // Overlay UI
+            document.getElementById('overlay-container').innerHTML = `
+                <div style="position:absolute; top:20px; left:20px; width:150px; height:20px; background:#500; border:2px solid #fff;">
+                    <div id="p-hp" style="width:100%; height:100%; background:#0f0;"></div>
+                </div>
+                <div style="position:absolute; top:20px; right:20px; width:150px; height:20px; background:#500; border:2px solid #fff;">
+                    <div id="e-hp" style="width:100%; height:100%; background:#f90;"></div>
+                </div>
+            `;
         },
 
-        update: function(dt, input) {
-            if(isNaN(dt)) dt = 0.016;
-            if (this.state === 'KO') return;
-
-            let punch = false;
-            if (input.pose) {
-                const lw = input.pose.find(k => k.name === 'left_wrist');
-                const rw = input.pose.find(k => k.name === 'right_wrist');
-                const nose = input.pose.find(k => k.name === 'nose');
-                if ((lw && nose && lw.y < nose.y) || (rw && nose && rw.y < nose.y)) punch = true;
+        update: function(dt, input, ctx, w, h) {
+            if (this.state === 'KO') {
+                ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+                ctx.fillStyle = '#f00'; ctx.textAlign='center'; ctx.font='60px Arial';
+                ctx.fillText("K.O.!", w/2, h/2);
+                return 0;
             }
 
-            if (punch && this.enemy.state === 'IDLE') {
-                this.enemy.hp -= 5; this.shake = 15; this.enemy.state = 'HIT';
-                setTimeout(() => this.enemy.state = 'IDLE', 400);
+            // 1. INPUT (Detect Punch)
+            let punched = false;
+            let lx = 0, ly = h;
+            let rx = w, ry = h;
+
+            if (input.type === 'pose') {
+                const l = input.get('left_wrist');
+                const r = input.get('right_wrist');
+                const nose = input.get('nose');
+                
+                if (l.found) { lx = l.x * w; ly = l.y * h; }
+                if (r.found) { rx = r.x * w; ry = r.y * h; }
+
+                // Logic: Wrist higher than nose = Punch (simplified for web)
+                if (nose.found) {
+                    const noseY = nose.y * h;
+                    if ((l.found && ly < noseY) || (r.found && ry < noseY)) {
+                        punched = true;
+                    }
+                }
+            } else {
+                // Mouse Click
+                if (input.mouse?.active) punched = true;
             }
 
-            this.enemy.timer += dt;
-            if (this.enemy.timer > 2.0 && this.enemy.state === 'IDLE') {
-                this.enemy.state = 'ATTACK';
-                setTimeout(() => { this.player.hp -= 10; this.shake = 30; this.enemy.state = 'IDLE'; this.enemy.timer = 0; }, 500);
+            // 2. GAMEPLAY
+            if (punched && this.enemyState === 'IDLE') {
+                this.enemyHp -= 2;
+                this.shake = 20;
+                this.enemyState = 'HIT';
+                this.audio.sfx.crash();
+                setTimeout(() => this.enemyState = 'IDLE', 300);
             }
 
-            if (this.enemy.hp <= 0 || this.player.hp <= 0) {
-                this.state = 'KO';
-                const ko = document.getElementById('ko-msg');
-                if(ko) ko.style.display = 'block';
+            // Enemy AI
+            this.enemyTimer += dt;
+            if (this.enemyTimer > 2.0) {
+                this.hp -= 5;
+                this.shake = 10;
+                this.audio.sfx.back(); // Hit sound
+                this.enemyTimer = 0;
             }
 
-            const p = document.getElementById('p-hp'); if(p) p.style.width = this.player.hp + '%';
-            const e = document.getElementById('e-hp'); if(e) e.style.width = this.enemy.hp + '%';
-            if (this.shake > 0) this.shake *= 0.9;
-        },
+            if (this.hp <= 0 || this.enemyHp <= 0) this.state = 'KO';
 
-        draw: function(ctx, w, h) {
+            // UI Updates
+            const pBar = document.getElementById('p-hp');
+            if(pBar) pBar.style.width = this.hp + '%';
+            const eBar = document.getElementById('e-hp');
+            if(eBar) eBar.style.width = this.enemyHp + '%';
+
+            // 3. RENDER
+            // Apply Shake
             ctx.save();
-            if (this.shake > 0.5) ctx.translate((Math.random()-0.5)*this.shake, (Math.random()-0.5)*this.shake);
-            const grad = ctx.createRadialGradient(w/2, h/2, 50, w/2, h/2, w);
-            grad.addColorStop(0, '#222'); grad.addColorStop(1, '#000');
+            if (this.shake > 0) {
+                ctx.translate((Math.random()-0.5)*this.shake, (Math.random()-0.5)*this.shake);
+                this.shake *= 0.9;
+            }
+
+            // Background (Ring)
+            const grad = ctx.createRadialGradient(w/2, h/2, 100, w/2, h/2, w);
+            grad.addColorStop(0, '#333'); grad.addColorStop(1, '#000');
             ctx.fillStyle = grad; ctx.fillRect(0,0,w,h);
+
+            // Enemy
+            const ex = w/2; const ey = h/2 + 50;
+            ctx.fillStyle = this.enemyState === 'HIT' ? '#fff' : '#f1c40f';
             
-            const ex = w/2; const ey = h/2 + 100;
-            ctx.fillStyle = this.enemy.state === 'HIT' ? '#fff' : '#f1c40f';
-            ctx.beginPath(); ctx.arc(ex, ey, 75, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#e67e22'; ctx.fillRect(ex - 75, ey + 75, 150, 100);
-            ctx.fillStyle = this.enemy.state === 'ATTACK' ? '#f00' : '#a00';
-            ctx.beginPath(); ctx.arc(ex - 100, ey + 150, 60, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(ex + 100, ey + 150, 60, 0, Math.PI*2); ctx.fill();
+            // Head
+            ctx.beginPath(); ctx.arc(ex, ey, 80, 0, Math.PI*2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#000'; 
+            ctx.fillRect(ex-30, ey-10, 20, 10); ctx.fillRect(ex+10, ey-10, 20, 10);
+            // Gloves
+            ctx.fillStyle = '#f00';
+            ctx.beginPath(); ctx.arc(ex-120, ey+100, 60, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(ex+120, ey+100, 60, 0, Math.PI*2); ctx.fill();
+
+            // Player Gloves (AR Overlay)
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+            ctx.beginPath(); ctx.arc(lx, ly, 50, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(rx, ry, 50, 0, Math.PI*2); ctx.fill();
+
             ctx.restore();
-        },
-        cleanup: function() { const ui = document.getElementById('game-overlay-container'); if(ui) ui.innerHTML = ''; }
+            return this.hp;
+        }
     };
-    const register = () => { if(window.System?.registerGame) window.System.registerGame('box_ar', 'SUPER BOX', '🥊', Game, { camOpacity: 0.3 }); else setTimeout(register, 100); };
-    register();
+    
+    // Safety init
+    const reg = () => {
+        if(window.System) window.System.register('box', 'Knockout AR', 'Boxing Sim', '🥊', Game);
+        else setTimeout(reg, 100);
+    };
+    reg();
 })();
