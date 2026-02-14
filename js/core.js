@@ -1,241 +1,239 @@
 /* =================================================================
-   THIAGUINHO OS ENGINE KERNEL V3.2 (LOOP FIX)
-   Correção Crítica: Timestamp NaN Fix & Resource Loader
+   THIAGUINHO ENGINE KERNEL V4 (AAA ARCHITECTURE)
+   Features: Async Init, Event Bus, Asset Synth, Input Fusion
    ================================================================= */
 
-window.System = (function() {
-    // 1. Configurações
-    const CONFIG = {
-        FPS: 60,
-        ASPECT_RATIO: 16/9,
-        DEBUG: false,
-        CAM_WIDTH: 640,
-        CAM_HEIGHT: 480
-    };
-
-    // 2. Variáveis de Estado
-    let canvas, ctx;
-    let games = [];
-    let activeGame = null;
-    let loopId = null;
-    let lastTime = 0;
-
-    // 3. Audio System (WebAudio)
+(function() {
+    // --- AUDIO SYNTHESIZER (No external files) ---
     const AudioSys = {
-        ctx: null, masterGain: null,
+        ctx: null, master: null,
         init: () => {
             if (AudioSys.ctx) return;
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            AudioSys.ctx = new AudioContext();
-            AudioSys.masterGain = AudioSys.ctx.createGain();
-            AudioSys.masterGain.gain.value = 0.3;
-            AudioSys.masterGain.connect(AudioSys.ctx.destination);
+            const AC = window.AudioContext || window.webkitAudioContext;
+            AudioSys.ctx = new AC();
+            AudioSys.master = AudioSys.ctx.createGain();
+            AudioSys.master.gain.value = 0.3;
+            AudioSys.master.connect(AudioSys.ctx.destination);
         },
-        playTone: (freq, type, duration, vol = 0.5) => {
+        play: (type, freq, dur, vol=0.5, slide=0) => {
             if (!AudioSys.ctx) return;
-            try {
-                const osc = AudioSys.ctx.createOscillator();
-                const gain = AudioSys.ctx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, AudioSys.ctx.currentTime);
-                gain.gain.setValueAtTime(vol, AudioSys.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, AudioSys.ctx.currentTime + duration);
-                osc.connect(gain);
-                gain.connect(AudioSys.masterGain);
-                osc.start();
-                osc.stop(AudioSys.ctx.currentTime + duration);
-            } catch(e){}
+            const t = AudioSys.ctx.currentTime;
+            const osc = AudioSys.ctx.createOscillator();
+            const gain = AudioSys.ctx.createGain();
+            
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, t);
+            if(slide) osc.frequency.linearRampToValueAtTime(freq + slide, t + dur);
+            
+            gain.gain.setValueAtTime(vol, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+            
+            osc.connect(gain); gain.connect(AudioSys.master);
+            osc.start(); osc.stop(t + dur);
         },
+        // Presets
         sfx: {
-            hover: () => AudioSys.playTone(400, 'sine', 0.05, 0.05),
-            select: () => AudioSys.playTone(800, 'square', 0.1, 0.1),
-            back: () => AudioSys.playTone(200, 'triangle', 0.15, 0.1),
-            error: () => AudioSys.playTone(150, 'sawtooth', 0.3, 0.2),
-            success: () => { AudioSys.playTone(600, 'sine', 0.1, 0.2); setTimeout(() => AudioSys.playTone(900, 'sine', 0.2, 0.2), 100); }
+            hover: () => AudioSys.play('sine', 400, 0.1, 0.1),
+            select: () => AudioSys.play('square', 800, 0.1, 0.1),
+            back: () => AudioSys.play('triangle', 200, 0.2, 0.2),
+            crash: () => AudioSys.play('sawtooth', 100, 0.4, 0.3, -50),
+            coin: () => { AudioSys.play('sine', 1200, 0.1, 0.1); setTimeout(()=>AudioSys.play('sine', 1600, 0.2, 0.1), 100); }
         }
     };
 
-    // 4. Input System (Camera)
+    // --- INPUT FUSION (Webcam + Touch Fallback) ---
     const InputSys = {
-        video: null, detector: null, pose: null, isReady: false,
+        video: null, detector: null, pose: null,
+        mouse: { x: 0, y: 0, active: false },
         init: async () => {
+            InputSys.video = document.getElementById('webcam');
             try {
-                InputSys.video = document.getElementById('webcam');
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: CONFIG.CAM_WIDTH, height: CONFIG.CAM_HEIGHT, facingMode: 'user' }, audio: false
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480, facingMode: 'user' } 
                 });
                 InputSys.video.srcObject = stream;
                 await new Promise(r => InputSys.video.onloadedmetadata = r);
+                InputSys.video.play();
+                
                 if (window.poseDetection) {
                     InputSys.detector = await poseDetection.createDetector(
                         poseDetection.SupportedModels.MoveNet,
                         { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
                     );
-                    InputSys.isReady = true;
-                    InputSys.detectLoop();
+                    InputSys.loop();
                 }
-            } catch (e) { console.log("Cam offline (Mouse mode)"); }
+            } catch (e) {
+                console.warn("Camera failed, using Mouse/Touch fallback");
+            }
+
+            // Mouse/Touch Listeners
+            window.addEventListener('mousemove', e => {
+                InputSys.mouse.x = e.clientX;
+                InputSys.mouse.y = e.clientY;
+                InputSys.mouse.active = true;
+            });
+            window.addEventListener('touchmove', e => {
+                InputSys.mouse.x = e.touches[0].clientX;
+                InputSys.mouse.y = e.touches[0].clientY;
+                InputSys.mouse.active = true;
+            });
         },
-        detectLoop: async () => {
-            if (!InputSys.isReady) return;
-            try {
-                const poses = await InputSys.detector.estimatePoses(InputSys.video, { flipHorizontal: false });
-                if (poses.length > 0) InputSys.pose = poses[0];
-            } catch(e) {}
-            setTimeout(InputSys.detectLoop, 33); // ~30 FPS tracking
+        loop: async () => {
+            if (InputSys.detector && InputSys.video.readyState === 4) {
+                try {
+                    const poses = await InputSys.detector.estimatePoses(InputSys.video, {flipHorizontal: false});
+                    if (poses.length > 0) InputSys.pose = poses[0];
+                    else InputSys.pose = null;
+                } catch(e){}
+            }
+            requestAnimationFrame(InputSys.loop);
         },
-        getNormalizedPose: () => {
-            if (!InputSys.pose) return null;
-            const p = InputSys.pose.keypoints;
-            const norm = (val, max) => val / max;
-            return p.map(k => ({ name: k.name, x: norm(k.x, CONFIG.CAM_WIDTH), y: norm(k.y, CONFIG.CAM_HEIGHT), score: k.score }));
+        // Retorna dados normalizados (0-1) independente da fonte
+        getData: (w, h) => {
+            // Prioridade: Pose
+            if (InputSys.pose && InputSys.pose.keypoints) {
+                const norm = (val, max) => val / max;
+                const p = InputSys.pose.keypoints;
+                // Helper para mapear keypoint
+                const get = (name) => {
+                    const k = p.find(kp => kp.name === name);
+                    if (k && k.score > 0.3) return { x: 1 - (k.x/640), y: k.y/480, found: true }; // Espelhado horizontalmente
+                    return { x: 0.5, y: 0.5, found: false };
+                };
+                return { type: 'pose', get, raw: InputSys.pose };
+            }
+            // Fallback: Mouse
+            return {
+                type: 'mouse',
+                get: (name) => ({ x: InputSys.mouse.x / w, y: InputSys.mouse.y / h, found: true }),
+                raw: null
+            };
         }
     };
 
-    // 5. Network System
-    const NetSys = {
-        id: 'Player_' + Math.floor(Math.random()*9999),
-        init: () => {
-            const elId = document.getElementById('console-id');
-            if(elId) elId.innerText = NetSys.id;
-            const statusEl = document.getElementById('net-status');
+    // --- GAME ENGINE ---
+    const Engine = {
+        canvas: null, ctx: null,
+        games: [], activeGame: null,
+        loopId: null, lastTime: 0,
+        playerId: 'P' + Math.floor(Math.random()*9000+1000),
+
+        init: async () => {
+            Engine.canvas = document.getElementById('game-canvas');
+            Engine.ctx = Engine.canvas.getContext('2d', {alpha: false});
             
-            if (window.FIREBASE_READY && window.DB) {
-                window.DB.ref(".info/connected").on("value", (snap) => {
-                    const online = snap.val() === true;
-                    if(statusEl) {
-                        statusEl.innerHTML = online ? "● ONLINE" : "● OFFLINE";
-                        statusEl.style.color = online ? "#00ff88" : "#ff3333";
-                    }
-                    if(online) {
-                        window.DB.ref(`online/${NetSys.id}`).onDisconnect().remove();
-                        window.DB.ref(`online/${NetSys.id}`).set({ state: 'IDLE', lastSeen: Date.now() });
+            const resize = () => {
+                Engine.canvas.width = window.innerWidth;
+                Engine.canvas.height = window.innerHeight;
+            };
+            window.addEventListener('resize', resize);
+            resize();
+
+            // Init Subsystems
+            await InputSys.init();
+            
+            // UI Handling
+            document.getElementById('loader').style.opacity = 0;
+            setTimeout(() => {
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('menu').classList.remove('fade-out');
+            }, 500);
+
+            // Unlock Audio
+            document.body.addEventListener('click', () => AudioSys.init(), {once:true});
+            
+            // Net Status
+            if (window.FB_READY) {
+                const db = firebase.database();
+                db.ref(".info/connected").on("value", snap => {
+                    const el = document.getElementById('net-dot');
+                    const txt = document.getElementById('net-text');
+                    if (snap.val()) {
+                        el.style.background = '#0f0'; txt.innerText = "ONLINE";
+                        // Register Presence
+                        const ref = db.ref(`online/${Engine.playerId}`);
+                        ref.onDisconnect().remove();
+                        ref.set(Date.now());
+                    } else {
+                        el.style.background = '#f00'; txt.innerText = "OFFLINE";
                     }
                 });
             }
-        }
-    };
+        },
 
-    // 6. Engine Core Functions
-    const stopGame = () => {
-        if (loopId) cancelAnimationFrame(loopId);
-        loopId = null;
-        if (activeGame && activeGame.logic.cleanup) activeGame.logic.cleanup();
-        activeGame = null;
-        if (ctx) ctx.clearRect(0,0, canvas.width, canvas.height);
-    };
-
-    const loop = (timestamp) => {
-        if (!activeGame) return;
-        
-        // Correção de NaN: Se timestamp for undefined ou inválido, usa lastTime + 16ms
-        if (!timestamp) timestamp = lastTime + 16.6;
-        
-        const rawDt = (timestamp - lastTime) / 1000;
-        const dt = Math.min(Math.max(rawDt, 0.001), 0.1); // Clamp entre 1ms e 100ms
-        lastTime = timestamp;
-
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        if (activeGame.logic.update) {
-            const inputData = { pose: InputSys.getNormalizedPose(), rawPose: InputSys.pose };
-            activeGame.logic.update(dt, inputData);
-            if(activeGame.logic.draw) activeGame.logic.draw(ctx, canvas.width, canvas.height);
-        }
-        loopId = requestAnimationFrame(loop);
-    };
-
-    const loadGame = (id) => {
-        const game = games.find(g => g.id === id);
-        if (!game) return;
-
-        AudioSys.sfx.select();
-        document.getElementById('menu-screen').classList.add('hidden');
-        document.getElementById('game-ui').classList.remove('hidden');
-        
-        const cam = document.getElementById('webcam');
-        if(cam) cam.style.opacity = game.opts.camOpacity !== undefined ? game.opts.camOpacity : 0.2;
-
-        activeGame = game;
-        if (activeGame.logic.init) {
-            activeGame.logic.init({
-                ctx: ctx,
-                width: canvas.width,
-                height: canvas.height,
-                playerId: NetSys.id,
-                audio: AudioSys,
-                net: window.DB
-            });
-        }
-
-        // CORREÇÃO: Não chamar loop() diretamente, usar requestAnimationFrame
-        lastTime = performance.now();
-        loopId = requestAnimationFrame(loop);
-    };
-
-    const menu = () => {
-        stopGame();
-        document.getElementById('menu-screen').classList.remove('hidden');
-        document.getElementById('game-ui').classList.add('hidden');
-        const cam = document.getElementById('webcam');
-        if(cam) cam.style.opacity = 0;
-        AudioSys.sfx.back();
-    };
-
-    const registerGame = (id, title, icon, logicClass, options) => {
-        if (games.find(g => g.id === id)) return;
-        games.push({ id, title, icon, logic: logicClass, opts: options || {} });
-        
-        const grid = document.getElementById('channel-grid');
-        if (grid) {
+        register: (id, name, desc, icon, logic) => {
+            Engine.games.push({id, name, desc, icon, logic});
+            const list = document.getElementById('games-list');
             const card = document.createElement('div');
-            card.className = 'channel-card';
-            card.innerHTML = `<div class="channel-icon">${icon}</div><div class="channel-title">${title}</div>`;
-            card.onclick = () => loadGame(id);
-            card.onmouseenter = () => AudioSys.sfx.hover();
-            grid.appendChild(card);
+            card.className = 'game-card';
+            card.innerHTML = `
+                <div class="game-icon">${icon}</div>
+                <div class="game-info">
+                    <h3>${name}</h3>
+                    <p>${desc}</p>
+                </div>
+            `;
+            card.onclick = () => Engine.load(id);
+            card.onmouseenter = AudioSys.sfx.hover;
+            list.appendChild(card);
+        },
+
+        load: (id) => {
+            const g = Engine.games.find(x => x.id === id);
+            if(!g) return;
+            
+            AudioSys.sfx.select();
+            Engine.activeGame = g;
+            
+            // Transitions
+            document.getElementById('menu').classList.add('fade-out');
+            document.getElementById('hud').classList.remove('fade-out');
+            document.getElementById('webcam').style.opacity = 0.2; // Show AR hint
+
+            if (g.logic.init) g.logic.init(Engine.playerId, AudioSys);
+            Engine.lastTime = performance.now();
+            Engine.loop();
+        },
+
+        home: () => {
+            AudioSys.sfx.back();
+            if (Engine.loopId) cancelAnimationFrame(Engine.loopId);
+            Engine.activeGame = null;
+            
+            document.getElementById('hud').classList.add('fade-out');
+            document.getElementById('menu').classList.remove('fade-out');
+            document.getElementById('webcam').style.opacity = 0;
+            document.getElementById('overlay-container').innerHTML = '';
+            
+            // Clear Canvas
+            Engine.ctx.fillStyle = '#000';
+            Engine.ctx.fillRect(0,0,Engine.canvas.width, Engine.canvas.height);
+        },
+
+        loop: (t) => {
+            if (!Engine.activeGame) return;
+            const dt = Math.min((t - Engine.lastTime) / 1000, 0.1) || 0.016;
+            Engine.lastTime = t;
+
+            const w = Engine.canvas.width;
+            const h = Engine.canvas.height;
+            const input = InputSys.getData(w, h);
+
+            // Update & Draw
+            Engine.ctx.fillStyle = '#000';
+            Engine.ctx.fillRect(0,0,w,h);
+            
+            const score = Engine.activeGame.logic.update(dt, input, Engine.ctx, w, h);
+            
+            if (score !== undefined) {
+                document.getElementById('score-display').innerText = Math.floor(score);
+            }
+
+            Engine.loopId = requestAnimationFrame(Engine.loop);
         }
     };
 
-    const init = async () => {
-        canvas = document.getElementById('game-canvas');
-        if(!canvas) return;
-        
-        ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
-        
-        const resize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        };
-        window.addEventListener('resize', resize);
-        resize();
-
-        NetSys.init();
-        await InputSys.init();
-        
-        const loader = document.getElementById('loader');
-        if(loader) {
-            loader.style.opacity = 0;
-            setTimeout(() => loader.style.display = 'none', 500);
-        }
-
-        // Unlock Audio Context
-        document.body.addEventListener('click', () => {
-            AudioSys.init();
-            if(InputSys.video) InputSys.video.play().catch(()=>{});
-        }, { once: true });
-    };
-
-    return {
-        init, registerGame, loadGame, home: menu, stopGame,
-        playerId: NetSys.id,
-        Math: {
-            lerp: (a, b, t) => a + (b - a) * t,
-            clamp: (num, min, max) => Math.min(Math.max(num, min), max),
-            dist: (x1, y1, x2, y2) => Math.hypot(x2-x1, y2-y1)
-        }
-    };
+    // Expose System
+    window.System = Engine;
+    window.onload = Engine.init;
 })();
-
-window.addEventListener('load', window.System.init);
